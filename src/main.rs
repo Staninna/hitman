@@ -8,6 +8,7 @@ mod models;
 mod payloads;
 mod socket;
 mod state;
+mod routes;
 
 use state::AppState;
 
@@ -37,25 +38,11 @@ async fn main() {
         },
     );
 
-    let app = router().layer(layer);
+    let app = routes::router().layer(layer);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Server listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn handler() -> &'static str {
-    "Hello, Hitman!"
-}
-
-async fn kill_handler() -> &'static str {
-    "Kill confirmed (placeholder)"
-}
-
-fn router() -> Router {
-    Router::new()
-        .route("/", get(handler))
-        .route("/api/kill", post(kill_handler))
 }
