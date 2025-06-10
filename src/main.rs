@@ -1,24 +1,27 @@
-use axum::{routing::post, routing::get, Router};
+use axum::routing::post;
+use socketioxide::SocketIo;
 use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber::prelude::*;
 
 mod db;
+mod errors;
+mod handlers;
 mod models;
 mod payloads;
 mod socket;
 mod state;
-mod routes;
 
 use state::AppState;
 
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
+    sqlx::any::install_default_drivers();
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "hitman=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -27,22 +30,29 @@ async fn main() {
         .await
         .expect("Failed to create database pool");
 
-    let app_state = AppState { db };
+    let (layer, io) = SocketIo::new_layer();
 
-    let (layer, io) = socketioxide::SocketIo::new_layer();
+    let state_for_router = AppState {
+        db,
+        io: io.clone(),
+    };
+    let state_for_socket = state_for_router.clone();
 
-    io.ns(
-        "/",
-        move |socket: socketioxide::extract::SocketRef| {
-            socket::on_connect(socket, app_state.clone())
-        },
-    );
+    io.ns("/", move |socket: socketioxide::extract::SocketRef| {
+        socket::on_connect(socket, state_for_socket)
+    });
 
-    let app = routes::router().layer(layer);
+    let app = router(state_for_router).layer(layer);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Server listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+fn router(app_state: AppState) -> axum::Router {
+    axum::Router::new()
+        .route("/api/kill", post(handlers::kill_handler))
+        .with_state(app_state)
 }

@@ -23,4 +23,20 @@ pub struct GameCreatedPayload {
 #[derive(Debug, Serialize)]
 pub struct ErrorPayload {
     pub message: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct PlayerEliminated {
+    pub eliminated_player_name: String,
+    pub killer_name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct NewTarget {
+    pub target_name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GameOver {
+    pub winner_name: String,
 } 

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "game_status", rename_all = "lowercase")]
 pub enum GameStatus {
     Lobby,
@@ -27,6 +27,7 @@ pub struct Game {
     pub id: i64,
     pub code: String,
     pub status: GameStatus,
-    pub host_id: i64,
+    pub host_id: Option<i64>,
     pub winner_id: Option<i64>,
+    pub created_at: Option<sqlx::types::chrono::NaiveDateTime>,
 } 
