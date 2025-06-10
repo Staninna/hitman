@@ -1,14 +1,15 @@
 use crate::{
+    errors::AppError,
     payloads::{
         CreateGamePayload, ErrorPayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload,
-        PlayerJoinedPayload,
+        NewTarget, PlayerJoinedPayload, StartGamePayload,
     },
     state::AppState,
 };
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use tracing::{error, info};
 
-use super::utils::generate_game_code;
+use crate::utils::generate_game_code;
 
 pub async fn create_game(
     socket: SocketRef,
@@ -30,7 +31,9 @@ pub async fn create_game(
         .create_game(payload.player_name, game_code.clone())
         .await
     {
-        Ok((game_id, player_secret, auth_token)) => {
+        Ok((game_id, player_id, player_secret, auth_token)) => {
+            state.connected_players.insert(player_id, socket.clone());
+
             let players = match state.db.get_players_by_game_id(game_id).await {
                 Ok(players) => players,
                 Err(e) => {
@@ -75,7 +78,9 @@ pub async fn join_game(
         .join_game(payload.game_code.clone(), payload.player_name)
         .await
     {
-        Ok(Some((game_id, player_secret, auth_token))) => {
+        Ok(Some((game_id, player_id, player_secret, auth_token))) => {
+            state.connected_players.insert(player_id, socket.clone());
+
             let players = match state.db.get_players_by_game_id(game_id).await {
                 Ok(players) => players,
                 Err(e) => {
@@ -125,12 +130,59 @@ pub async fn join_game(
 
 pub async fn start_game(
     socket: SocketRef,
-    Data(payload): Data<serde_json::Value>,
+    Data(payload): Data<StartGamePayload>,
     state: AppState,
 ) {
-    info!(
-        "[socket {}] Received start_game: {:?}, state: {:?}",
-        socket.id, payload, state.db
-    );
-    // TODO: Implement game starting logic
+    info!("[socket {}] Received start_game: {:?}", socket.id, payload);
+
+    let game_code = payload.game_code;
+    let auth_token = payload.auth_token;
+
+    let player = match state.db.get_player_by_auth_token(&auth_token).await {
+        Ok(Some(player)) => player,
+        _ => {
+            let payload = ErrorPayload {
+                message: "Invalid auth token.".to_string(),
+            };
+            socket.emit("error", &payload).ok();
+            return;
+        }
+    };
+
+    match state.db.start_game(&game_code, player.id).await {
+        Ok(players) => {
+            info!("Game {} started with players: {:?}", game_code, players);
+
+            let room = game_code.clone();
+            socket.to(room).emit("game_started", &players).await.ok();
+
+            for player in players {
+                if let Some(target_name) = player.target_name.clone() {
+                    let event = "new_target";
+                    let payload = NewTarget { target_name };
+
+                    if let Some(player_socket) = state.connected_players.get(&player.id) {
+                        player_socket.emit(event, &payload).ok();
+                    }
+                }
+            }
+        }
+        Err(AppError::NotFound(message)) => {
+            error!("Game not found: {}", message);
+            let payload = ErrorPayload { message };
+            socket.emit("error", &payload).ok();
+        }
+        Err(AppError::Forbidden(message)) => {
+            error!("Forbidden: {}", message);
+            let payload = ErrorPayload { message };
+            socket.emit("error", &payload).ok();
+        }
+        Err(_) => {
+            error!("Failed to start game");
+            let payload = ErrorPayload {
+                message: "Failed to start game.".to_string(),
+            };
+            socket.emit("error", &payload).ok();
+        }
+    }
 }

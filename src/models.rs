@@ -20,6 +20,8 @@ pub struct Player {
     pub is_alive: bool,
     pub target_id: Option<i64>,
     pub game_id: i64,
+    #[sqlx(default)]
+    pub target_name: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]

@@ -2,6 +2,7 @@ use crate::{
     errors::AppError,
     models::{Game, GameStatus, Player},
 };
+use rand::seq::SliceRandom;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::{env, ops::Deref};
 use tracing::info;
@@ -30,7 +31,7 @@ impl Db {
         &self,
         player_name: String,
         game_code: String,
-    ) -> Result<(i64, Uuid, String), sqlx::Error> {
+    ) -> Result<(i64, i64, Uuid, String), sqlx::Error> {
         let mut tx = self.0.begin().await?;
 
         let player_secret = Uuid::new_v4();
@@ -65,14 +66,14 @@ impl Db {
 
         tx.commit().await?;
 
-        Ok((game_id, player_secret, auth_token))
+        Ok((game_id, player_id, player_secret, auth_token))
     }
 
     pub async fn join_game(
         &self,
         game_code: String,
         player_name: String,
-    ) -> Result<Option<(i64, Uuid, String)>, sqlx::Error> {
+    ) -> Result<Option<(i64, i64, Uuid, String)>, sqlx::Error> {
         let mut tx = self.0.begin().await?;
 
         let game_row = sqlx::query!(
@@ -116,7 +117,7 @@ impl Db {
             let player_secret = Uuid::new_v4();
             let auth_token = Uuid::new_v4().to_string();
 
-            sqlx::query!(
+            let player_id = sqlx::query!(
                 "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
                 game.id,
                 player_name,
@@ -124,11 +125,12 @@ impl Db {
                 auth_token
             )
             .execute(&mut *tx)
-            .await?;
+            .await?
+            .last_insert_rowid();
 
             tx.commit().await?;
 
-            Ok(Some((game.id, player_secret, auth_token)))
+            Ok(Some((game.id, player_id, player_secret, auth_token)))
         } else {
             Ok(None)
         }
@@ -138,7 +140,7 @@ impl Db {
         sqlx::query_as!(
             Player,
             r#"
-            SELECT id, name, secret_code as "secret_code: _", auth_token, is_alive, target_id, game_id
+            SELECT id, name, secret_code as "secret_code: _", auth_token, is_alive, target_id, game_id, NULL as "target_name: _"
             FROM players
             WHERE game_id = ?
             "#,
@@ -146,6 +148,134 @@ impl Db {
         )
         .fetch_all(&self.0)
         .await
+    }
+
+    pub async fn get_player_by_auth_token(
+        &self,
+        auth_token: &str,
+    ) -> Result<Option<Player>, sqlx::Error> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, name, secret_code, auth_token, is_alive, target_id, game_id
+            FROM players
+            WHERE auth_token = ?
+            "#,
+            auth_token
+        )
+        .fetch_optional(&self.0)
+        .await?;
+
+        Ok(row.map(|r| Player {
+            id: r.id.unwrap(),
+            name: r.name,
+            secret_code: r.secret_code.parse().unwrap(),
+            auth_token: r.auth_token,
+            is_alive: r.is_alive,
+            target_id: r.target_id,
+            game_id: r.game_id,
+            target_name: None,
+        }))
+    }
+
+    pub async fn start_game(&self, game_code: &str, player_id: i64) -> Result<Vec<Player>, AppError> {
+        let mut tx = self.0.begin().await.map_err(|_| AppError::InternalServerError)?;
+
+        let game_row = sqlx::query!(
+            "SELECT id, code, status, host_id, winner_id, created_at FROM games WHERE code = ?",
+            game_code
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)?
+        .ok_or_else(|| AppError::NotFound("Game not found.".to_string()))?;
+
+        let game_status: GameStatus = match game_row.status.as_str() {
+            "lobby" => GameStatus::Lobby,
+            "in_progress" => GameStatus::InProgress,
+            "finished" => GameStatus::Finished,
+            _ => {
+                return Err(AppError::InternalServerError);
+            }
+        };
+
+        let game = Game {
+            id: game_row.id.unwrap(),
+            code: game_row.code,
+            status: game_status,
+            host_id: game_row.host_id,
+            winner_id: game_row.winner_id,
+            created_at: game_row.created_at,
+        };
+
+        if game.host_id != Some(player_id) {
+            return Err(AppError::Forbidden(
+                "Only the host can start the game.".to_string(),
+            ));
+        }
+
+        if game.status != GameStatus::Lobby {
+            return Err(AppError::UnprocessableEntity(
+                "Game has already started or has finished.".to_string(),
+            ));
+        }
+
+        let mut players = self
+            .get_players_by_game_id(game.id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        if players.len() < 2 {
+            return Err(AppError::UnprocessableEntity(
+                "Not enough players to start the game.".to_string(),
+            ));
+        }
+
+        players.shuffle(&mut rand::thread_rng());
+
+        for i in 0..players.len() {
+            let target_index = (i + 1) % players.len();
+            players[i].target_id = Some(players[target_index].id);
+        }
+
+        for player in &players {
+            if let Some(target_id) = player.target_id {
+                sqlx::query!(
+                    "UPDATE players SET target_id = ? WHERE id = ?",
+                    target_id,
+                    player.id
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| AppError::InternalServerError)?;
+            }
+        }
+
+        sqlx::query!(
+            "UPDATE games SET status = 'in_progress' WHERE id = ?",
+            game.id
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)?;
+
+        tx.commit().await.map_err(|_| AppError::InternalServerError)?;
+
+        let started_players = self
+            .get_players_by_game_id(game.id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let mut players_with_targets = Vec::new();
+        for mut player in players {
+            let target = started_players
+                .iter()
+                .find(|p| p.id == player.target_id.unwrap())
+                .unwrap();
+            player.target_name = Some(target.name.clone());
+            players_with_targets.push(player);
+        }
+
+        Ok(players_with_targets)
     }
 
     pub async fn process_kill(
@@ -169,7 +299,8 @@ impl Db {
                 auth_token as "auth_token!",
                 is_alive as "is_alive!",
                 target_id,
-                game_id as "game_id!"
+                game_id as "game_id!",
+                NULL as "target_name: _"
             FROM players
             WHERE auth_token = ?
             "#,
@@ -200,7 +331,8 @@ impl Db {
                 auth_token as "auth_token!",
                 is_alive as "is_alive!",
                 target_id,
-                game_id as "game_id!"
+                game_id as "game_id!",
+                NULL as "target_name: _"
             FROM players
             WHERE secret_code = ?
             "#,

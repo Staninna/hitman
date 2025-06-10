@@ -3,6 +3,8 @@ use socketioxide::SocketIo;
 use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber::prelude::*;
+use std::sync::Arc;
+use dashmap::DashMap;
 
 mod db;
 mod errors;
@@ -11,6 +13,7 @@ mod models;
 mod payloads;
 mod socket;
 mod state;
+mod utils;
 
 use state::AppState;
 
@@ -30,7 +33,7 @@ async fn main() {
 
     let (layer, io) = SocketIo::new_layer();
 
-    let state_for_router = AppState { db, io: io.clone() };
+    let state_for_router = AppState { db, io: io.clone(), connected_players: Arc::new(DashMap::new()) };
     let state_for_socket = state_for_router.clone();
 
     io.ns("/", move |socket: socketioxide::extract::SocketRef| {

@@ -16,6 +16,12 @@ pub struct JoinGamePayload {
     pub game_code: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct StartGamePayload {
+    pub game_code: String,
+    pub auth_token: String,
+}
+
 // --- Server-to-Client Payloads ---
 
 #[derive(Debug, Serialize)]
@@ -36,6 +42,11 @@ pub struct GameJoinedPayload {
 
 #[derive(Debug, Serialize)]
 pub struct PlayerJoinedPayload {
+    pub players: Vec<Player>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GameStartedPayload {
     pub players: Vec<Player>,
 }
 
