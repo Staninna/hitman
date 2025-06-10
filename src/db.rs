@@ -177,8 +177,16 @@ impl Db {
         }))
     }
 
-    pub async fn start_game(&self, game_code: &str, player_id: i64) -> Result<Vec<Player>, AppError> {
-        let mut tx = self.0.begin().await.map_err(|_| AppError::InternalServerError)?;
+    pub async fn start_game(
+        &self,
+        game_code: &str,
+        player_id: i64,
+    ) -> Result<Vec<Player>, AppError> {
+        let mut tx = self
+            .0
+            .begin()
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
 
         let game_row = sqlx::query!(
             "SELECT id, code, status, host_id, winner_id, created_at FROM games WHERE code = ?",
@@ -258,7 +266,9 @@ impl Db {
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
-        tx.commit().await.map_err(|_| AppError::InternalServerError)?;
+        tx.commit()
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
 
         let started_players = self
             .get_players_by_game_id(game.id)
@@ -362,7 +372,9 @@ impl Db {
         }
 
         if killer.id == target.id {
-            return Err(AppError::Forbidden("A player cannot kill themselves.".to_string()));
+            return Err(AppError::Forbidden(
+                "A player cannot kill themselves.".to_string(),
+            ));
         }
 
         // 4. Validate game status

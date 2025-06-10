@@ -1,10 +1,10 @@
 use axum::routing::post;
+use dashmap::DashMap;
 use socketioxide::SocketIo;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tracing::info;
 use tracing_subscriber::prelude::*;
-use std::sync::Arc;
-use dashmap::DashMap;
 
 mod db;
 mod errors;
@@ -33,7 +33,11 @@ async fn main() {
 
     let (layer, io) = SocketIo::new_layer();
 
-    let state_for_router = AppState { db, io: io.clone(), connected_players: Arc::new(DashMap::new()) };
+    let state_for_router = AppState {
+        db,
+        io: io.clone(),
+        connected_players: Arc::new(DashMap::new()),
+    };
     let state_for_socket = state_for_router.clone();
 
     io.ns("/", move |socket: socketioxide::extract::SocketRef| {

@@ -9,4 +9,4 @@ pub fn generate_game_code(len: usize) -> String {
             CHARSET[idx] as char
         })
         .collect()
-} 
+}

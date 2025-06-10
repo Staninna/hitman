@@ -128,11 +128,7 @@ pub async fn join_game(
     }
 }
 
-pub async fn start_game(
-    socket: SocketRef,
-    Data(payload): Data<StartGamePayload>,
-    state: AppState,
-) {
+pub async fn start_game(socket: SocketRef, Data(payload): Data<StartGamePayload>, state: AppState) {
     info!("[socket {}] Received start_game: {:?}", socket.id, payload);
 
     let game_code = payload.game_code;
