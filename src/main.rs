@@ -1,11 +1,14 @@
-use axum::{routing::get, Router};
-use sqlx::SqlitePool;
+use axum::{routing::post, routing::get, Router};
 use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber::prelude::*;
 
 mod db;
 mod models;
+mod socket;
+mod state;
+
+use state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -22,23 +25,34 @@ async fn main() {
         .await
         .expect("Failed to create database pool");
 
-    let app = router(db_pool);
+    let app_state = AppState { db_pool };
+
+    let (layer, io) = socketioxide::SocketIo::builder()
+        .with_state(app_state.clone())
+        .build_layer();
+
+    io.ns("/", socket::on_connect);
+
+    let app = router(app_state).layer(layer);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Server listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app.into_make_service())
-        .await
-        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
 async fn handler() -> &'static str {
     "Hello, Hitman!"
 }
 
-fn router(db_pool: SqlitePool) -> Router {
+async fn kill_handler() -> &'static str {
+    "Kill confirmed (placeholder)"
+}
+
+fn router(app_state: AppState) -> Router {
     Router::new()
         .route("/", get(handler))
-        .with_state(db_pool)
+        .route("/api/kill", post(kill_handler))
+        .with_state(app_state)
 }
