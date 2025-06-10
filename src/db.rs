@@ -68,6 +68,72 @@ impl Db {
         Ok((game_id, player_secret, auth_token))
     }
 
+    pub async fn join_game(
+        &self,
+        game_code: String,
+        player_name: String,
+    ) -> Result<Option<(i64, Uuid, String)>, sqlx::Error> {
+        let mut tx = self.0.begin().await?;
+
+        let game_row = sqlx::query!(
+            r#"
+            SELECT 
+                id, 
+                code, 
+                status, 
+                host_id, 
+                winner_id,
+                created_at
+            FROM games 
+            WHERE code = ?
+            "#,
+            game_code
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        if let Some(row) = game_row {
+            let game_status: GameStatus = match row.status.as_str() {
+                "lobby" => GameStatus::Lobby,
+                "in_progress" => GameStatus::InProgress,
+                "finished" => GameStatus::Finished,
+                _ => return Ok(None),
+            };
+
+            let game = Game {
+                id: row.id.unwrap(),
+                code: row.code,
+                status: game_status,
+                host_id: row.host_id,
+                winner_id: row.winner_id,
+                created_at: row.created_at,
+            };
+
+            if game.status != GameStatus::Lobby {
+                return Ok(None); // Or a custom error
+            }
+
+            let player_secret = Uuid::new_v4();
+            let auth_token = Uuid::new_v4().to_string();
+
+            sqlx::query!(
+                "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
+                game.id,
+                player_name,
+                player_secret,
+                auth_token
+            )
+            .execute(&mut *tx)
+            .await?;
+
+            tx.commit().await?;
+
+            Ok(Some((game.id, player_secret, auth_token)))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn get_players_by_game_id(&self, game_id: i64) -> Result<Vec<Player>, sqlx::Error> {
         sqlx::query_as!(
             Player,

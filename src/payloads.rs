@@ -10,6 +10,12 @@ pub struct CreateGamePayload {
     pub player_name: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct JoinGamePayload {
+    pub player_name: String,
+    pub game_code: String,
+}
+
 // --- Server-to-Client Payloads ---
 
 #[derive(Debug, Serialize)]
@@ -17,6 +23,19 @@ pub struct GameCreatedPayload {
     pub game_code: String,
     pub player_secret: Uuid,
     pub auth_token: String,
+    pub players: Vec<Player>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GameJoinedPayload {
+    pub game_code: String,
+    pub player_secret: Uuid,
+    pub auth_token: String,
+    pub players: Vec<Player>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlayerJoinedPayload {
     pub players: Vec<Player>,
 }
 
