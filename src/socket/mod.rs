@@ -13,20 +13,20 @@ pub fn on_connect(socket: SocketRef, state: AppState) {
 
     socket.on("create_game", {
         let state = state.clone();
-        move |socket, payload, ack| {
+        move |socket, payload| {
             let state = state.clone();
             tokio::spawn(async move {
-                handlers::create_game(socket, payload, ack, state).await;
+                handlers::create_game(socket, payload, state).await;
             });
         }
     });
 
     socket.on("join_game", {
         let state = state.clone();
-        move |socket, payload, ack| {
+        move |socket, payload| {
             let state = state.clone();
             tokio::spawn(async move {
-                handlers::join_game(socket, payload, ack, state).await;
+                handlers::join_game(socket, payload, state).await;
             });
         }
     });

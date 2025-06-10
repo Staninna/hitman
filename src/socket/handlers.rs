@@ -14,7 +14,6 @@ use crate::utils::generate_game_code;
 pub async fn create_game(
     socket: SocketRef,
     Data(payload): Data<CreateGamePayload>,
-    _ack: AckSender,
     state: AppState,
 ) {
     info!("[socket {}] Received create_game: {:?}", socket.id, payload);
@@ -68,7 +67,6 @@ pub async fn create_game(
 pub async fn join_game(
     socket: SocketRef,
     Data(payload): Data<JoinGamePayload>,
-    _ack: AckSender,
     state: AppState,
 ) {
     info!("[socket {}] Received join_game: {:?}", socket.id, payload);
