@@ -1,7 +1,11 @@
 use axum::{routing::get, Router};
+use sqlx::SqlitePool;
 use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber::prelude::*;
+
+mod db;
+mod models;
 
 #[tokio::main]
 async fn main() {
@@ -9,12 +13,16 @@ async fn main() {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            dotenvy::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "hitman=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let app = router();
+    let db_pool = db::create_pool()
+        .await
+        .expect("Failed to create database pool");
+
+    let app = router(db_pool);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Server listening on {}", addr);
@@ -29,6 +37,8 @@ async fn handler() -> &'static str {
     "Hello, Hitman!"
 }
 
-fn router() -> Router {
-    Router::new().route("/", get(handler))
+fn router(db_pool: SqlitePool) -> Router {
+    Router::new()
+        .route("/", get(handler))
+        .with_state(db_pool)
 }
