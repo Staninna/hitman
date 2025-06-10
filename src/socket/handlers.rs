@@ -82,4 +82,4 @@ pub async fn start_game(
         socket.id, payload, state.db
     );
     // TODO: Implement game starting logic
-} 
+}

@@ -8,4 +8,4 @@ pub fn generate_game_code(len: usize) -> String {
         .choose_multiple(&mut rng, len)
         .map(|&c| c as char)
         .collect()
-} 
+}

@@ -24,10 +24,8 @@ pub async fn kill_handler(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Query(query): Query<KillQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let (killer_name, eliminated_player_name, new_target_name) = state
-        .db
-        .process_kill(auth.token(), &query.secret)
-        .await?;
+    let (killer_name, eliminated_player_name, new_target_name) =
+        state.db.process_kill(auth.token(), &query.secret).await?;
 
     let room = state
         .db
@@ -70,4 +68,4 @@ pub async fn kill_handler(
     }
 
     Ok((StatusCode::OK, Json("Kill confirmed")))
-} 
+}

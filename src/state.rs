@@ -5,4 +5,4 @@ use socketioxide::SocketIo;
 pub struct AppState {
     pub db: Db,
     pub io: SocketIo,
-} 
+}

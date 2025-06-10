@@ -26,16 +26,11 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db = db::Db::new()
-        .await
-        .expect("Failed to create database pool");
+    let db = db::Db::new().await.expect("Failed to create database pool");
 
     let (layer, io) = SocketIo::new_layer();
 
-    let state_for_router = AppState {
-        db,
-        io: io.clone(),
-    };
+    let state_for_router = AppState { db, io: io.clone() };
     let state_for_socket = state_for_router.clone();
 
     io.ns("/", move |socket: socketioxide::extract::SocketRef| {

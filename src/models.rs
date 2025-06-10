@@ -30,4 +30,4 @@ pub struct Game {
     pub host_id: Option<i64>,
     pub winner_id: Option<i64>,
     pub created_at: Option<sqlx::types::chrono::NaiveDateTime>,
-} 
+}

@@ -173,10 +173,13 @@ impl Db {
 
         // 5. Update state
         // Set target's `is_alive` to false
-        sqlx::query!("UPDATE players SET is_alive = FALSE WHERE id = ?", target.id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| AppError::InternalServerError)?;
+        sqlx::query!(
+            "UPDATE players SET is_alive = FALSE WHERE id = ?",
+            target.id
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)?;
 
         // Update killer's target to the target's old target
         sqlx::query!(
@@ -227,4 +230,4 @@ impl Deref for Db {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-} 
+}

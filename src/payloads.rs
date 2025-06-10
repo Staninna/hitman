@@ -39,4 +39,4 @@ pub struct NewTarget {
 #[derive(Debug, Serialize, Clone)]
 pub struct GameOver {
     pub winner_name: String,
-} 
+}
