@@ -5,6 +5,7 @@ use tracing_subscriber::prelude::*;
 
 mod db;
 mod models;
+mod payloads;
 mod socket;
 mod state;
 
@@ -16,24 +17,27 @@ async fn main() {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "hitman=debug,tower_http=debug".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db_pool = db::create_pool()
+    let db = db::Db::new()
         .await
         .expect("Failed to create database pool");
 
-    let app_state = AppState { db_pool };
+    let app_state = AppState { db };
 
-    let (layer, io) = socketioxide::SocketIo::builder()
-        .with_state(app_state.clone())
-        .build_layer();
+    let (layer, io) = socketioxide::SocketIo::new_layer();
 
-    io.ns("/", socket::on_connect);
+    io.ns(
+        "/",
+        move |socket: socketioxide::extract::SocketRef| {
+            socket::on_connect(socket, app_state.clone())
+        },
+    );
 
-    let app = router(app_state).layer(layer);
+    let app = router().layer(layer);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Server listening on {}", addr);
@@ -50,9 +54,8 @@ async fn kill_handler() -> &'static str {
     "Kill confirmed (placeholder)"
 }
 
-fn router(app_state: AppState) -> Router {
+fn router() -> Router {
     Router::new()
         .route("/", get(handler))
         .route("/api/kill", post(kill_handler))
-        .with_state(app_state)
 }
