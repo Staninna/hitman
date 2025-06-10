@@ -117,6 +117,12 @@ impl Db {
         })?
         .ok_or(AppError::Unauthorized)?;
 
+        if !killer.is_alive {
+            return Err(AppError::Forbidden(
+                "A dead player cannot perform a kill.".to_string(),
+            ));
+        }
+
         // 2. Find target by secret code
         let target = sqlx::query_as!(
             Player,
@@ -144,7 +150,24 @@ impl Db {
             "Target secret does not correspond to an active player.".to_string(),
         ))?;
 
-        // 3. Validate game status
+        if !target.is_alive {
+            return Err(AppError::Forbidden(
+                "The target is already dead.".to_string(),
+            ));
+        }
+
+        // 3. Validate game integrity
+        if killer.game_id != target.game_id {
+            return Err(AppError::Forbidden(
+                "Killer and target are not in the same game.".to_string(),
+            ));
+        }
+
+        if killer.id == target.id {
+            return Err(AppError::Forbidden("A player cannot kill themselves.".to_string()));
+        }
+
+        // 4. Validate game status
         let game = sqlx::query_as!(
             Game,
             r#"
@@ -164,14 +187,14 @@ impl Db {
             ));
         }
 
-        // 4. Validate target
+        // 5. Validate target
         if killer.target_id != Some(target.id) {
             return Err(AppError::Forbidden(
                 "The identified target is not the killer's current target.".to_string(),
             ));
         }
 
-        // 5. Update state
+        // 6. Update state
         // Set target's `is_alive` to false
         sqlx::query!(
             "UPDATE players SET is_alive = FALSE WHERE id = ?",
@@ -181,22 +204,39 @@ impl Db {
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
+        // Check for game over condition
+        let is_game_over = target.target_id == Some(killer.id) || target.target_id.is_none();
+        let new_target_id = if is_game_over { None } else { target.target_id };
+
         // Update killer's target to the target's old target
         sqlx::query!(
             "UPDATE players SET target_id = ? WHERE id = ?",
-            target.target_id,
+            new_target_id,
             killer.id
         )
         .execute(&mut *tx)
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
-        let new_target_name = if let Some(new_target_id) = target.target_id {
-            sqlx::query_scalar!("SELECT name FROM players WHERE id = ?", new_target_id)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|_| AppError::InternalServerError)?
+        let new_target_name = if !is_game_over {
+            if let Some(new_target_id) = target.target_id {
+                sqlx::query_scalar!("SELECT name FROM players WHERE id = ?", new_target_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?
+            } else {
+                None // Should be unreachable due to is_game_over check
+            }
         } else {
+            // Game is over, set the winner
+            sqlx::query!(
+                "UPDATE games SET status = 'finished', winner_id = ? WHERE id = ?",
+                killer.id,
+                killer.game_id
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
             None
         };
 
