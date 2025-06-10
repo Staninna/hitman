@@ -33,39 +33,61 @@ pub async fn kill_handler(
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
-    // Broadcast the elimination to all players in the game
+    broadcast_player_eliminated(&state, &room, &killer_name, &eliminated_player_name).await;
+    notify_killer_of_new_target_or_game_over(&state, &room, &killer_name, new_target_name).await;
+
+    Ok((StatusCode::OK, Json("Kill confirmed")))
+}
+
+async fn broadcast_player_eliminated(
+    state: &AppState,
+    room: &str,
+    killer_name: &str,
+    eliminated_player_name: &str,
+) {
     let eliminated_payload = PlayerEliminated {
-        killer_name: killer_name.clone(),
-        eliminated_player_name,
+        killer_name: killer_name.to_string(),
+        eliminated_player_name: eliminated_player_name.to_string(),
     };
     state
         .io
-        .to(room.clone())
+        .to(room.to_string())
         .emit("player_eliminated", &eliminated_payload)
         .await
         .ok();
+}
 
-    // Send the new target to the killer
+async fn notify_killer_of_new_target_or_game_over(
+    state: &AppState,
+    room: &str,
+    killer_name: &str,
+    new_target_name: Option<String>,
+) {
     if let Some(target_name) = new_target_name {
-        let new_target_payload = NewTarget { target_name };
-        state
-            .io
-            .to(room)
-            .emit("new_target", &new_target_payload)
-            .await
-            .ok();
+        notify_new_target(state, room, target_name).await;
     } else {
-        // Handle game over logic if there's no new target
-        let game_over_payload = GameOver {
-            winner_name: killer_name,
-        };
-        state
-            .io
-            .to(room)
-            .emit("game_over", &game_over_payload)
-            .await
-            .ok();
+        notify_game_over(state, room, killer_name).await;
     }
+}
 
-    Ok((StatusCode::OK, Json("Kill confirmed")))
+async fn notify_new_target(state: &AppState, room: &str, target_name: String) {
+    let new_target_payload = NewTarget { target_name };
+    state
+        .io
+        .to(room.to_string())
+        .emit("new_target", &new_target_payload)
+        .await
+        .ok();
+}
+
+async fn notify_game_over(state: &AppState, room: &str, winner_name: &str) {
+    let game_over_payload = GameOver {
+        winner_name: winner_name.to_string(),
+    };
+    state
+        .io
+        .to(room.to_string())
+        .emit("game_over", &game_over_payload)
+        .await
+        .ok();
 }

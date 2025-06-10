@@ -1,11 +1,18 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
+use thiserror::Error;
 
+#[derive(Error, Debug)]
 pub enum AppError {
+    #[error("Internal server error")]
     InternalServerError,
+    #[error("Unauthorized")]
     Unauthorized,
+    #[error("Forbidden: {0}")]
     Forbidden(String),
+    #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Unprocessable entity: {0}")]
     UnprocessableEntity(String),
 }
 

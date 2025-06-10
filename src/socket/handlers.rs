@@ -6,7 +6,7 @@ use crate::{
     },
     state::AppState,
 };
-use socketioxide::extract::{AckSender, Data, SocketRef};
+use socketioxide::extract::{Data, SocketRef};
 use tracing::{error, info};
 
 use crate::utils::generate_game_code;
@@ -25,105 +25,89 @@ pub async fn create_game(
 
     let game_code = generate_game_code(game_code_len);
 
-    match state
+    let result = state
         .db
         .create_game(payload.player_name, game_code.clone())
-        .await
-    {
-        Ok((game_id, player_id, player_secret, auth_token)) => {
-            state.connected_players.insert(player_id, socket.clone());
+        .await;
 
-            let players = match state.db.get_players_by_game_id(game_id).await {
-                Ok(players) => players,
-                Err(e) => {
-                    error!("Failed to fetch players after game creation: {}", e);
-                    let payload = ErrorPayload {
-                        message: "Game created, but failed to fetch player list.".to_string(),
-                    };
-                    socket.emit("error", &payload).ok();
-                    return;
-                }
-            };
-
-            let response = GameCreatedPayload {
-                game_code,
-                player_secret,
-                auth_token,
-                players,
-            };
-
-            socket.emit("game_created", &response).ok();
-        }
-        Err(e) => {
-            error!("Failed to create game: {}", e);
-            let payload = ErrorPayload {
-                message: "Failed to create game.".to_string(),
-            };
-            socket.emit("error", &payload).ok();
-        }
+    if let Err(e) = result {
+        error!("Failed to create game: {}", e);
+        send_error(&socket, "Failed to create game.").await;
+        return;
     }
+
+    let (game_id, player_id, player_secret, auth_token) = result.unwrap();
+    state.connected_players.insert(player_id, socket.clone());
+
+    let players = match state.db.get_players_by_game_id(game_id).await {
+        Ok(players) => players,
+        Err(e) => {
+            error!("Failed to fetch players after game creation: {}", e);
+            send_error(&socket, "Game created, but failed to fetch player list.").await;
+            return;
+        }
+    };
+
+    let response = GameCreatedPayload {
+        game_code,
+        player_secret,
+        auth_token,
+        players,
+    };
+
+    socket.emit("game_created", &response).ok();
 }
 
-pub async fn join_game(
-    socket: SocketRef,
-    Data(payload): Data<JoinGamePayload>,
-    state: AppState,
-) {
+pub async fn join_game(socket: SocketRef, Data(payload): Data<JoinGamePayload>, state: AppState) {
     info!("[socket {}] Received join_game: {:?}", socket.id, payload);
 
-    match state
+    let result = state
         .db
         .join_game(payload.game_code.clone(), payload.player_name)
-        .await
-    {
-        Ok(Some((game_id, player_id, player_secret, auth_token))) => {
-            state.connected_players.insert(player_id, socket.clone());
+        .await;
 
-            let players = match state.db.get_players_by_game_id(game_id).await {
-                Ok(players) => players,
-                Err(e) => {
-                    error!("Failed to fetch players after joining game: {}", e);
-                    let payload = ErrorPayload {
-                        message: "Joined game, but failed to fetch player list.".to_string(),
-                    };
-                    socket.emit("error", &payload).ok();
-                    return;
-                }
-            };
-
-            let room = payload.game_code.clone();
-            let response = GameJoinedPayload {
-                game_code: payload.game_code,
-                player_secret,
-                auth_token,
-                players: players.clone(),
-            };
-
-            socket.emit("game_joined", &response).ok();
-
-            let player_joined_response = PlayerJoinedPayload { players };
-            socket
-                .to(room.clone())
-                .emit("player_joined", &player_joined_response)
-                .await
-                .ok();
-            socket.join(room);
-        }
+    let (game_id, player_id, player_secret, auth_token) = match result {
+        Ok(Some(data)) => data,
         Ok(None) => {
             error!("Game not found: {}", payload.game_code);
-            let payload = ErrorPayload {
-                message: "Game not found.".to_string(),
-            };
-            socket.emit("error", &payload).ok();
+            send_error(&socket, "Game not found.").await;
+            return;
         }
         Err(e) => {
             error!("Failed to join game: {}", e);
-            let payload = ErrorPayload {
-                message: "Failed to join game.".to_string(),
-            };
-            socket.emit("error", &payload).ok();
+            send_error(&socket, "Failed to join game.").await;
+            return;
         }
-    }
+    };
+
+    state.connected_players.insert(player_id, socket.clone());
+
+    let players = match state.db.get_players_by_game_id(game_id).await {
+        Ok(players) => players,
+        Err(e) => {
+            error!("Failed to fetch players after joining game: {}", e);
+            send_error(&socket, "Joined game, but failed to fetch player list.").await;
+            return;
+        }
+    };
+
+    let room = payload.game_code.clone();
+    let response = GameJoinedPayload {
+        game_code: payload.game_code,
+        player_secret,
+        auth_token,
+        players: players.clone(),
+    };
+
+    socket.emit("game_joined", &response).ok();
+
+    let player_joined_response = PlayerJoinedPayload { players };
+    socket
+        .to(room.clone())
+        .emit("player_joined", &player_joined_response)
+        .await
+        .ok();
+    socket.join(room);
 }
 
 pub async fn start_game(socket: SocketRef, Data(payload): Data<StartGamePayload>, state: AppState) {
@@ -135,48 +119,56 @@ pub async fn start_game(socket: SocketRef, Data(payload): Data<StartGamePayload>
     let player = match state.db.get_player_by_auth_token(&auth_token).await {
         Ok(Some(player)) => player,
         _ => {
-            let payload = ErrorPayload {
-                message: "Invalid auth token.".to_string(),
-            };
-            socket.emit("error", &payload).ok();
+            send_error(&socket, "Invalid auth token.").await;
             return;
         }
     };
 
-    match state.db.start_game(&game_code, player.id).await {
-        Ok(players) => {
-            info!("Game {} started with players: {:?}", game_code, players);
+    // TODO: why we calling start_game twice?
+    if let Err(e) = state.db.start_game(&game_code, player.id).await {
+        handle_start_game_error(&socket, e).await;
+        return;
+    }
 
-            let room = game_code.clone();
-            socket.to(room).emit("game_started", &players).await.ok();
+    let players = state.db.start_game(&game_code, player.id).await.unwrap();
 
-            for player in players {
-                if let Some(target_name) = player.target_name.clone() {
-                    let event = "new_target";
-                    let payload = NewTarget { target_name };
+    info!("Game {} started with players: {:?}", game_code, players);
 
-                    if let Some(player_socket) = state.connected_players.get(&player.id) {
-                        player_socket.emit(event, &payload).ok();
-                    }
-                }
+    let room = game_code.clone();
+    socket.to(room).emit("game_started", &players).await.ok();
+
+    for player in players {
+        if let Some(target_name) = player.target_name.clone() {
+            let event = "new_target";
+            let payload = NewTarget { target_name };
+
+            if let Some(player_socket) = state.connected_players.get(&player.id) {
+                player_socket.emit(event, &payload).ok();
             }
         }
-        Err(AppError::NotFound(message)) => {
+    }
+}
+
+async fn handle_start_game_error(socket: &SocketRef, error: AppError) {
+    match error {
+        AppError::NotFound(message) => {
             error!("Game not found: {}", message);
-            let payload = ErrorPayload { message };
-            socket.emit("error", &payload).ok();
+            send_error(socket, &message).await;
         }
-        Err(AppError::Forbidden(message)) => {
+        AppError::Forbidden(message) => {
             error!("Forbidden: {}", message);
-            let payload = ErrorPayload { message };
-            socket.emit("error", &payload).ok();
+            send_error(socket, &message).await;
         }
-        Err(_) => {
+        _ => {
             error!("Failed to start game");
-            let payload = ErrorPayload {
-                message: "Failed to start game.".to_string(),
-            };
-            socket.emit("error", &payload).ok();
+            send_error(socket, "Failed to start game.").await;
         }
     }
+}
+
+async fn send_error(socket: &SocketRef, message: &str) {
+    let payload = ErrorPayload {
+        message: message.to_string(),
+    };
+    socket.emit("error", &payload).ok();
 }

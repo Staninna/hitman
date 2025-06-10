@@ -93,47 +93,49 @@ impl Db {
         .fetch_optional(&mut *tx)
         .await?;
 
-        if let Some(row) = game_row {
-            let game_status: GameStatus = match row.status.as_str() {
-                "lobby" => GameStatus::Lobby,
-                "in_progress" => GameStatus::InProgress,
-                "finished" => GameStatus::Finished,
-                _ => return Ok(None),
-            };
-
-            let game = Game {
-                id: row.id.unwrap(),
-                code: row.code,
-                status: game_status,
-                host_id: row.host_id,
-                winner_id: row.winner_id,
-                created_at: row.created_at,
-            };
-
-            if game.status != GameStatus::Lobby {
-                return Ok(None); // Or a custom error
-            }
-
-            let player_secret = Uuid::new_v4();
-            let auth_token = Uuid::new_v4().to_string();
-
-            let player_id = sqlx::query!(
-                "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
-                game.id,
-                player_name,
-                player_secret,
-                auth_token
-            )
-            .execute(&mut *tx)
-            .await?
-            .last_insert_rowid();
-
-            tx.commit().await?;
-
-            Ok(Some((game.id, player_id, player_secret, auth_token)))
-        } else {
-            Ok(None)
+        if game_row.is_none() {
+            return Ok(None);
         }
+
+        let row = game_row.unwrap();
+
+        let game_status: GameStatus = match row.status.as_str() {
+            "lobby" => GameStatus::Lobby,
+            "in_progress" => GameStatus::InProgress,
+            "finished" => GameStatus::Finished,
+            _ => return Ok(None),
+        };
+
+        let game = Game {
+            id: row.id.unwrap(),
+            code: row.code,
+            status: game_status,
+            host_id: row.host_id,
+            winner_id: row.winner_id,
+            created_at: row.created_at,
+        };
+
+        if game.status != GameStatus::Lobby {
+            return Ok(None); // TODO: Return error u can not join games that aren't in lobby
+        }
+
+        let player_secret = Uuid::new_v4();
+        let auth_token = Uuid::new_v4().to_string();
+
+        let player_id = sqlx::query!(
+            "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
+            game.id,
+            player_name,
+            player_secret,
+            auth_token
+        )
+        .execute(&mut *tx)
+        .await?
+        .last_insert_rowid();
+
+        tx.commit().await?;
+
+        Ok(Some((game.id, player_id, player_secret, auth_token)))
     }
 
     pub async fn get_players_by_game_id(&self, game_id: i64) -> Result<Vec<Player>, sqlx::Error> {
@@ -238,8 +240,9 @@ impl Db {
             ));
         }
 
-        players.shuffle(&mut rand::thread_rng());
+        players.shuffle(&mut rand::rng());
 
+        // TODO: Players cant target themselves and multiple players cant have the same target and 2 players cant target each other
         for i in 0..players.len() {
             let target_index = (i + 1) % players.len();
             players[i].target_id = Some(players[target_index].id);
@@ -255,6 +258,8 @@ impl Db {
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
+            } else {
+                // TODO: wtf we do here?
             }
         }
 
@@ -299,7 +304,38 @@ impl Db {
         })?;
 
         // 1. Find killer by auth token
-        let killer = sqlx::query_as!(
+        let killer = self
+            .get_player_by_auth_token_in_tx(&mut tx, killer_token)
+            .await?;
+
+        // 2. Find target by secret code
+        let target = self
+            .get_player_by_secret_in_tx(&mut tx, target_secret)
+            .await?;
+
+        // 3. Validate game and kill
+        let game = self.get_game_by_id_in_tx(&mut tx, killer.game_id).await?;
+        Self::validate_kill(&killer, &target, &game)?;
+
+        // 4. Update state
+        let new_target_name = self
+            .update_game_state_after_kill(&mut tx, &killer, &target)
+            .await?;
+
+        tx.commit().await.map_err(|e| {
+            tracing::error!("Failed to commit transaction: {}", e);
+            AppError::InternalServerError
+        })?;
+
+        Ok((killer.name, target.name, new_target_name))
+    }
+
+    async fn get_player_by_auth_token_in_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        killer_token: &str,
+    ) -> Result<Player, AppError> {
+        sqlx::query_as!(
             Player,
             r#"
             SELECT 
@@ -316,22 +352,21 @@ impl Db {
             "#,
             killer_token
         )
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await
         .map_err(|e| {
             tracing::error!("Failed to query for killer: {}", e);
             AppError::InternalServerError
         })?
-        .ok_or(AppError::Unauthorized)?;
+        .ok_or(AppError::Unauthorized)
+    }
 
-        if !killer.is_alive {
-            return Err(AppError::Forbidden(
-                "A dead player cannot perform a kill.".to_string(),
-            ));
-        }
-
-        // 2. Find target by secret code
-        let target = sqlx::query_as!(
+    async fn get_player_by_secret_in_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        target_secret: &Uuid,
+    ) -> Result<Player, AppError> {
+        sqlx::query_as!(
             Player,
             r#"
             SELECT
@@ -348,7 +383,7 @@ impl Db {
             "#,
             target_secret
         )
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await
         .map_err(|e| {
             tracing::error!("Failed to query for target: {}", e);
@@ -356,7 +391,34 @@ impl Db {
         })?
         .ok_or(AppError::NotFound(
             "Target secret does not correspond to an active player.".to_string(),
-        ))?;
+        ))
+    }
+
+    async fn get_game_by_id_in_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        game_id: i64,
+    ) -> Result<Game, AppError> {
+        sqlx::query_as!(
+            Game,
+            r#"
+            SELECT id, code, status as "status: _", host_id, winner_id, created_at
+            FROM games
+            WHERE id = ?
+            "#,
+            game_id
+        )
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)
+    }
+
+    fn validate_kill(killer: &Player, target: &Player, game: &Game) -> Result<(), AppError> {
+        if !killer.is_alive {
+            return Err(AppError::Forbidden(
+                "A dead player cannot perform a kill.".to_string(),
+            ));
+        }
 
         if !target.is_alive {
             return Err(AppError::Forbidden(
@@ -364,7 +426,6 @@ impl Db {
             ));
         }
 
-        // 3. Validate game integrity
         if killer.game_id != target.game_id {
             return Err(AppError::Forbidden(
                 "Killer and target are not in the same game.".to_string(),
@@ -377,85 +438,68 @@ impl Db {
             ));
         }
 
-        // 4. Validate game status
-        let game = sqlx::query_as!(
-            Game,
-            r#"
-            SELECT id, code, status as "status: _", host_id, winner_id, created_at
-            FROM games
-            WHERE id = ?
-            "#,
-            killer.game_id
-        )
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|_| AppError::InternalServerError)?;
-
         if game.status != GameStatus::InProgress {
             return Err(AppError::UnprocessableEntity(
                 "Game is not in progress.".to_string(),
             ));
         }
 
-        // 5. Validate target
         if killer.target_id != Some(target.id) {
             return Err(AppError::Forbidden(
                 "The identified target is not the killer's current target.".to_string(),
             ));
         }
 
-        // 6. Update state
-        // Set target's `is_alive` to false
+        Ok(())
+    }
+
+    async fn update_game_state_after_kill(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        killer: &Player,
+        target: &Player,
+    ) -> Result<Option<String>, AppError> {
         sqlx::query!(
             "UPDATE players SET is_alive = FALSE WHERE id = ?",
             target.id
         )
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
-        // Check for game over condition
         let is_game_over = target.target_id == Some(killer.id) || target.target_id.is_none();
         let new_target_id = if is_game_over { None } else { target.target_id };
 
-        // Update killer's target to the target's old target
         sqlx::query!(
             "UPDATE players SET target_id = ? WHERE id = ?",
             new_target_id,
             killer.id
         )
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
-        let new_target_name = if !is_game_over {
-            if let Some(new_target_id) = target.target_id {
-                sqlx::query_scalar!("SELECT name FROM players WHERE id = ?", new_target_id)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(|_| AppError::InternalServerError)?
-            } else {
-                None // Should be unreachable due to is_game_over check
-            }
-        } else {
-            // Game is over, set the winner
+        if is_game_over {
             sqlx::query!(
                 "UPDATE games SET status = 'finished', winner_id = ? WHERE id = ?",
                 killer.id,
                 killer.game_id
             )
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await
             .map_err(|_| AppError::InternalServerError)?;
-            None
-        };
-
-        tx.commit().await.map_err(|e| {
-            tracing::error!("Failed to commit transaction: {}", e);
-            AppError::InternalServerError
-        })?;
-
-        Ok((killer.name, target.name, new_target_name))
+            Ok(None)
+        } else {
+            let new_target_name = if let Some(new_target_id) = target.target_id {
+                sqlx::query_scalar!("SELECT name FROM players WHERE id = ?", new_target_id)
+                    .fetch_optional(&mut **tx)
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?
+            } else {
+                None
+            };
+            Ok(new_target_name)
+        }
     }
 
     pub async fn get_game_room(&self, player_name: &str) -> Result<String, sqlx::Error> {

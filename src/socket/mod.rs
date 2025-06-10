@@ -14,30 +14,21 @@ pub fn on_connect(socket: SocketRef, state: AppState) {
     socket.on("create_game", {
         let state = state.clone();
         move |socket, payload| {
-            let state = state.clone();
-            tokio::spawn(async move {
-                handlers::create_game(socket, payload, state).await;
-            });
+            tokio::spawn(handlers::create_game(socket, payload, state));
         }
     });
 
     socket.on("join_game", {
         let state = state.clone();
         move |socket, payload| {
-            let state = state.clone();
-            tokio::spawn(async move {
-                handlers::join_game(socket, payload, state).await;
-            });
+            tokio::spawn(handlers::join_game(socket, payload, state));
         }
     });
 
     socket.on("start_game", {
         let state = state.clone();
         move |socket, payload| {
-            let state = state.clone();
-            tokio::spawn(async move {
-                handlers::start_game(socket, payload, state).await;
-            });
+            tokio::spawn(handlers::start_game(socket, payload, state));
         }
     });
 }
