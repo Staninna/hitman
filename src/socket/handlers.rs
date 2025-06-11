@@ -67,15 +67,10 @@ pub async fn join_game(socket: SocketRef, Data(payload): Data<JoinGamePayload>, 
         .await;
 
     let (game_id, player_id, player_secret, auth_token) = match result {
-        Ok(Some(data)) => data,
-        Ok(None) => {
-            error!("Game not found: {}", payload.game_code);
-            send_error(&socket, "Game not found.").await;
-            return;
-        }
+        Ok(data) => data,
         Err(e) => {
             error!("Failed to join game: {}", e);
-            send_error(&socket, "Failed to join game.").await;
+            send_error(&socket, &e.to_string()).await;
             return;
         }
     };
@@ -124,13 +119,13 @@ pub async fn start_game(socket: SocketRef, Data(payload): Data<StartGamePayload>
         }
     };
 
-    // TODO: why we calling start_game twice?
-    if let Err(e) = state.db.start_game(&game_code, player.id).await {
-        handle_start_game_error(&socket, e).await;
-        return;
-    }
-
-    let players = state.db.start_game(&game_code, player.id).await.unwrap();
+    let players = match state.db.start_game(&game_code, player.id).await {
+        Ok(players) => players,
+        Err(e) => {
+            handle_start_game_error(&socket, e).await;
+            return;
+        }
+    };
 
     info!("Game {} started with players: {:?}", game_code, players);
 

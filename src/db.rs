@@ -73,50 +73,54 @@ impl Db {
         &self,
         game_code: String,
         player_name: String,
-    ) -> Result<Option<(i64, i64, Uuid, String)>, sqlx::Error> {
-        let mut tx = self.0.begin().await?;
+    ) -> Result<(i64, i64, Uuid, String), AppError> {
+        let mut tx = self.0.begin().await.map_err(|e| {
+            tracing::error!("Failed to begin transaction: {}", e);
+            AppError::InternalServerError
+        })?;
 
         let game_row = sqlx::query!(
             r#"
-            SELECT 
-                id, 
-                code, 
-                status, 
-                host_id, 
+            SELECT
+                id,
+                code,
+                status,
+                host_id,
                 winner_id,
                 created_at
-            FROM games 
+            FROM games
             WHERE code = ?
             "#,
             game_code
         )
         .fetch_optional(&mut *tx)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch game: {}", e);
+            AppError::InternalServerError
+        })?
+        .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
-        if game_row.is_none() {
-            return Ok(None);
-        }
-
-        let row = game_row.unwrap();
-
-        let game_status: GameStatus = match row.status.as_str() {
+        let game_status: GameStatus = match game_row.status.as_str() {
             "lobby" => GameStatus::Lobby,
             "in_progress" => GameStatus::InProgress,
             "finished" => GameStatus::Finished,
-            _ => return Ok(None),
+            _ => return Err(AppError::InternalServerError),
         };
 
         let game = Game {
-            id: row.id.unwrap(),
-            code: row.code,
+            id: game_row.id.unwrap(),
+            code: game_row.code,
             status: game_status,
-            host_id: row.host_id,
-            winner_id: row.winner_id,
-            created_at: row.created_at,
+            host_id: game_row.host_id,
+            winner_id: game_row.winner_id,
+            created_at: game_row.created_at,
         };
 
         if game.status != GameStatus::Lobby {
-            return Ok(None); // TODO: Return error u can not join games that aren't in lobby
+            return Err(AppError::UnprocessableEntity(
+                "You can not join games that aren't in lobby".to_string(),
+            ));
         }
 
         let player_secret = Uuid::new_v4();
@@ -130,12 +134,19 @@ impl Db {
             auth_token
         )
         .execute(&mut *tx)
-        .await?
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to insert player: {}", e);
+            AppError::InternalServerError
+        })?
         .last_insert_rowid();
 
-        tx.commit().await?;
+        tx.commit().await.map_err(|e| {
+            tracing::error!("Failed to commit transaction: {}", e);
+            AppError::InternalServerError
+        })?;
 
-        Ok(Some((game.id, player_id, player_secret, auth_token)))
+        Ok((game.id, player_id, player_secret, auth_token))
     }
 
     pub async fn get_players_by_game_id(&self, game_id: i64) -> Result<Vec<Player>, sqlx::Error> {
@@ -242,7 +253,10 @@ impl Db {
 
         players.shuffle(&mut rand::rng());
 
-        // TODO: Players cant target themselves and multiple players cant have the same target and 2 players cant target each other
+        // This assigns each player a target in a circular fashion.
+        // For example, with 3 players (A, B, C), A targets B, B targets C, and C targets A.
+        // This ensures that no player targets themselves and each player has exactly one target.
+        // In the case of 2 players, they will target each other.
         for i in 0..players.len() {
             let target_index = (i + 1) % players.len();
             players[i].target_id = Some(players[target_index].id);
@@ -259,7 +273,10 @@ impl Db {
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
             } else {
-                // TODO: wtf we do here?
+                // This branch should be unreachable, as target assignment ensures every player
+                // has a target. If this code is ever executed, it indicates a bug in the
+                // target assignment logic.
+                unreachable!("All players must have a target before starting the game.");
             }
         }
 
