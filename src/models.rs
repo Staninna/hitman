@@ -9,27 +9,26 @@ pub enum GameStatus {
     Finished,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize, PartialEq)]
 pub struct Player {
     pub id: i64,
     pub name: String,
-    #[serde(skip_serializing)] // Never send secrets or tokens to all clients
+    #[serde(skip)]
     pub secret_code: Uuid,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub auth_token: String,
     pub is_alive: bool,
+    #[serde(skip)]
     pub target_id: Option<i64>,
+    #[serde(skip)]
     pub game_id: i64,
-    #[sqlx(default)]
+    #[serde(default)]
     pub target_name: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Game {
     pub id: i64,
-    pub code: String,
     pub status: GameStatus,
     pub host_id: Option<i64>,
-    pub winner_id: Option<i64>,
-    pub created_at: Option<sqlx::types::chrono::NaiveDateTime>,
 }

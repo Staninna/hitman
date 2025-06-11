@@ -5,26 +5,24 @@ use crate::models::Player;
 
 // --- Client-to-Server Payloads ---
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CreateGamePayload {
     pub player_name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct JoinGamePayload {
     pub player_name: String,
-    pub game_code: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct StartGamePayload {
-    pub game_code: String,
     pub auth_token: String,
 }
 
 // --- Server-to-Client Payloads ---
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GameCreatedPayload {
     pub game_code: String,
     pub player_secret: Uuid,
@@ -32,7 +30,7 @@ pub struct GameCreatedPayload {
     pub players: Vec<Player>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GameJoinedPayload {
     pub game_code: String,
     pub player_secret: Uuid,
@@ -79,4 +77,12 @@ pub struct NewTarget {
 #[derive(Debug, Serialize, Clone)]
 pub struct GameOver {
     pub winner_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KillResponsePayload {
+    pub eliminated_player_name: String,
+    pub killer_name: String,
+    pub new_target_name: Option<String>,
+    pub game_over: bool,
 }

@@ -1,10 +1,14 @@
 use crate::{
     errors::AppError,
-    payloads::{GameOver, NewTarget, PlayerEliminated},
+    payloads::{
+        CreateGamePayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload,
+        KillResponsePayload, StartGamePayload,
+    },
     state::AppState,
+    utils::generate_game_code,
 };
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -12,6 +16,7 @@ use axum::{
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
 use serde::Deserialize;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
@@ -19,80 +24,143 @@ pub struct KillQuery {
     secret: Uuid,
 }
 
+pub async fn create_game(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateGamePayload>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("Received create_game: {:?}", payload);
+
+    let game_code_len = dotenvy::var("GAME_CODE_LENGTH")
+        .unwrap_or_else(|_| "4".to_string())
+        .parse::<usize>()
+        .expect("GAME_CODE_LENGTH must be a number");
+
+    let game_code = generate_game_code(game_code_len);
+    debug!("Generated game code: {}", game_code);
+
+    let (game_id, _player_id, player_secret, auth_token) = state
+        .db
+        .create_game(payload.player_name, game_code.clone())
+        .await?;
+
+    debug!(
+        "Game created with id: {}, player_secret: {}, auth_token: {}",
+        game_id, player_secret, auth_token
+    );
+
+    let players = state.db.get_players_by_game_id(game_id).await?;
+    debug!("Fetched players: {:?}", players);
+
+    let response = GameCreatedPayload {
+        game_code,
+        player_secret,
+        auth_token,
+        players,
+    };
+
+    Ok((StatusCode::CREATED, Json(response)))
+}
+
+pub async fn join_game(
+    State(state): State<AppState>,
+    Path(game_code): Path<String>,
+    Json(payload): Json<JoinGamePayload>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("Received join_game for game {}: {:?}", game_code, payload);
+
+    let (game_id, _player_id, player_secret, auth_token) = state
+        .db
+        .join_game(game_code.clone(), payload.player_name)
+        .await?;
+
+    debug!(
+        "Player joined game with id: {}, player_secret: {}, auth_token: {}",
+        game_id, player_secret, auth_token
+    );
+
+    let players = state.db.get_players_by_game_id(game_id).await?;
+    debug!("Fetched players for game {}: {:?}", game_code, players);
+
+    let response = GameJoinedPayload {
+        game_code,
+        player_secret,
+        auth_token,
+        players,
+    };
+
+    Ok(Json(response))
+}
+
+pub async fn start_game(
+    State(state): State<AppState>,
+    Path(game_code): Path<String>,
+    Json(payload): Json<StartGamePayload>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("Received start_game for game {}: {:?}", game_code, payload);
+
+    let auth_token = payload.auth_token;
+
+    let player = match state.db.get_player_by_auth_token(&auth_token).await? {
+        Some(player) => {
+            debug!("Player found for auth token: {:?}", player);
+            player
+        }
+        None => return Err(AppError::Forbidden("Invalid auth token.".to_string())),
+    };
+
+    let players = state.db.start_game(&game_code, player.id).await?;
+
+    info!("Game {} started with players: {:?}", game_code, players);
+    debug!("Players after starting game {}: {:?}", game_code, players);
+
+    Ok(Json(players))
+}
+
 pub async fn kill_handler(
     State(state): State<AppState>,
+    Path(game_code): Path<String>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Query(query): Query<KillQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let (killer_id, killer_name, eliminated_player_name, new_target_name) =
-        state.db.process_kill(auth.token(), &query.secret).await?;
+    info!(
+        "Received kill_handler for game {}: killer token: {}, secret: {}",
+        game_code,
+        auth.token(),
+        query.secret
+    );
 
-    let room = state
+    let (killer_id, killer_name, eliminated_player_name, new_target_name) = state
         .db
-        .get_game_room(&killer_name)
-        .await
-        .map_err(|_| AppError::InternalServerError)?;
+        .process_kill(&game_code, auth.token(), &query.secret)
+        .await?;
 
-    broadcast_player_eliminated(&state, &room, &killer_name, &eliminated_player_name).await;
-    notify_killer_of_new_target_or_game_over(
-        &state,
-        &room,
-        killer_id,
-        &killer_name,
+    debug!(
+        "Processed kill in game {}: killer_id: {}, killer_name: {}, eliminated_player_name: {}, new_target_name: {:?}",
+        game_code, killer_id, killer_name, eliminated_player_name, new_target_name
+    );
+
+    let response = KillResponsePayload {
+        eliminated_player_name,
+        killer_name,
+        game_over: new_target_name.is_none(),
         new_target_name,
-    )
-    .await;
-
-    Ok((StatusCode::OK, Json("Kill confirmed")))
-}
-
-async fn broadcast_player_eliminated(
-    state: &AppState,
-    room: &str,
-    killer_name: &str,
-    eliminated_player_name: &str,
-) {
-    let eliminated_payload = PlayerEliminated {
-        killer_name: killer_name.to_string(),
-        eliminated_player_name: eliminated_player_name.to_string(),
     };
-    state
-        .io
-        .to(room.to_string())
-        .emit("player_eliminated", &eliminated_payload)
-        .await
-        .ok();
+
+    Ok((StatusCode::OK, Json(response)))
 }
 
-async fn notify_killer_of_new_target_or_game_over(
-    state: &AppState,
-    room: &str,
-    killer_id: i64,
-    killer_name: &str,
-    new_target_name: Option<String>,
-) {
-    if let Some(target_name) = new_target_name {
-        notify_new_target(state, killer_id, target_name).await;
-    } else {
-        notify_game_over(state, room, killer_name).await;
+pub async fn get_game_state(
+    State(state): State<AppState>,
+    Path(game_code): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("Received get_game_state for game {}", game_code);
+    let game = state.db.get_game_by_code(&game_code).await?;
+    debug!("Fetched game for game {}: {:?}", game_code, game);
+    if game.is_none() {
+        return Err(AppError::NotFound("Game not found".to_string()));
     }
-}
 
-async fn notify_new_target(state: &AppState, killer_id: i64, target_name: String) {
-    let new_target_payload = NewTarget { target_name };
-    if let Some(socket) = state.connected_players.get(&killer_id) {
-        socket.emit("new_target", &new_target_payload).ok();
-    }
-}
-
-async fn notify_game_over(state: &AppState, room: &str, winner_name: &str) {
-    let game_over_payload = GameOver {
-        winner_name: winner_name.to_string(),
-    };
-    state
-        .io
-        .to(room.to_string())
-        .emit("game_over", &game_over_payload)
-        .await
-        .ok();
+    let players = state.db.get_players_by_game_id(game.unwrap().id).await?;
+    debug!("Fetched players for game {}: {:?}", game_code, players);
+    Ok(Json(players))
 }
