@@ -18,5 +18,6 @@ CREATE TABLE IF NOT EXISTS players (
     is_alive BOOLEAN NOT NULL DEFAULT TRUE,
     target_id INTEGER, -- The 'id' of the player they are targeting
     FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-    FOREIGN KEY (target_id) REFERENCES players(id) ON DELETE SET NULL
+    FOREIGN KEY (target_id) REFERENCES players(id) ON DELETE SET NULL,
+    UNIQUE(game_id, name)
 );

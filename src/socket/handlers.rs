@@ -2,7 +2,8 @@ use crate::{
     errors::AppError,
     payloads::{
         CreateGamePayload, ErrorPayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload,
-        NewTarget, PlayerJoinedPayload, StartGamePayload,
+        NewTarget, PlayerJoinedPayload, PlayerLeftPayload, PlayerReconnectedPayload,
+        StartGamePayload,
     },
     state::AppState,
 };
@@ -37,6 +38,9 @@ pub async fn create_game(
     }
 
     let (game_id, player_id, player_secret, auth_token) = result.unwrap();
+
+    socket.extensions.insert(player_id);
+    socket.extensions.insert(game_code.clone());
     state.connected_players.insert(player_id, socket.clone());
 
     let players = match state.db.get_players_by_game_id(game_id).await {
@@ -61,20 +65,45 @@ pub async fn create_game(
 pub async fn join_game(socket: SocketRef, Data(payload): Data<JoinGamePayload>, state: AppState) {
     info!("[socket {}] Received join_game: {:?}", socket.id, payload);
 
+    let is_reconnecting = state
+        .db
+        .get_player_by_name(
+            state
+                .db
+                .get_game_by_code(&payload.game_code)
+                .await
+                .ok()
+                .flatten()
+                .map(|g| g.id)
+                .unwrap_or(-1),
+            &payload.player_name,
+        )
+        .await
+        .ok()
+        .flatten()
+        .is_some();
+
     let result = state
         .db
-        .join_game(payload.game_code.clone(), payload.player_name)
+        .join_game(payload.game_code.clone(), payload.player_name.clone())
         .await;
 
     let (game_id, player_id, player_secret, auth_token) = match result {
         Ok(data) => data,
+        Err(AppError::NotFound(msg)) => {
+            error!("Game not found: {}", msg);
+            send_error(&socket, &msg).await;
+            return;
+        }
         Err(e) => {
             error!("Failed to join game: {}", e);
-            send_error(&socket, &e.to_string()).await;
+            send_error(&socket, "Failed to join game.").await;
             return;
         }
     };
 
+    socket.extensions.insert(player_id);
+    socket.extensions.insert(payload.game_code.clone());
     state.connected_players.insert(player_id, socket.clone());
 
     let players = match state.db.get_players_by_game_id(game_id).await {
@@ -96,12 +125,24 @@ pub async fn join_game(socket: SocketRef, Data(payload): Data<JoinGamePayload>, 
 
     socket.emit("game_joined", &response).ok();
 
-    let player_joined_response = PlayerJoinedPayload { players };
-    socket
-        .to(room.clone())
-        .emit("player_joined", &player_joined_response)
-        .await
-        .ok();
+    if is_reconnecting {
+        let player_reconnected_response = PlayerReconnectedPayload {
+            player_name: payload.player_name.clone(),
+        };
+        socket
+            .to(room.clone())
+            .emit("player_reconnected", &player_reconnected_response)
+            .await
+            .ok();
+    } else {
+        let player_joined_response = PlayerJoinedPayload { players };
+        socket
+            .to(room.clone())
+            .emit("player_joined", &player_joined_response)
+            .await
+            .ok();
+    }
+
     socket.join(room);
 }
 
@@ -119,13 +160,13 @@ pub async fn start_game(socket: SocketRef, Data(payload): Data<StartGamePayload>
         }
     };
 
-    let players = match state.db.start_game(&game_code, player.id).await {
-        Ok(players) => players,
-        Err(e) => {
-            handle_start_game_error(&socket, e).await;
-            return;
-        }
-    };
+    // TODO: why we calling start_game twice?
+    if let Err(e) = state.db.start_game(&game_code, player.id).await {
+        handle_start_game_error(&socket, e).await;
+        return;
+    }
+
+    let players = state.db.start_game(&game_code, player.id).await.unwrap();
 
     info!("Game {} started with players: {:?}", game_code, players);
 
@@ -166,4 +207,38 @@ async fn send_error(socket: &SocketRef, message: &str) {
         message: message.to_string(),
     };
     socket.emit("error", &payload).ok();
+}
+
+pub async fn handle_disconnect(socket: SocketRef, state: AppState) {
+    info!("[socket {}] Disconnected", socket.id);
+
+    let player_id = if let Some(id) = socket.extensions.get::<i64>() {
+        id
+    } else {
+        return;
+    };
+
+    let game_code = if let Some(code) = socket.extensions.get::<String>() {
+        code
+    } else {
+        return;
+    };
+
+    state.connected_players.remove(&player_id);
+
+    let player = if let Ok(Some(p)) = state.db.get_player_by_id(player_id).await {
+        p
+    } else {
+        return;
+    };
+
+    let payload = PlayerLeftPayload {
+        player_name: player.name,
+    };
+    state
+        .io
+        .to(game_code)
+        .emit("player_left", &payload)
+        .await
+        .ok();
 }

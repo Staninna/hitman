@@ -1,6 +1,9 @@
 use crate::state::AppState;
 use socketioxide::extract::SocketRef;
+use socketioxide::socket::DisconnectReason;
 use tracing::info;
+
+use crate::socket::handlers::handle_disconnect;
 
 mod handlers;
 
@@ -29,6 +32,14 @@ pub fn on_connect(socket: SocketRef, state: AppState) {
         let state = state.clone();
         move |socket, payload| {
             tokio::spawn(handlers::start_game(socket, payload, state));
+        }
+    });
+
+    socket.on_disconnect({
+        let state = state.clone();
+        move |socket: SocketRef, reason: DisconnectReason| {
+            info!("Socket disconnected: {} with reason: {}", socket.id, reason);
+            tokio::spawn(handle_disconnect(socket, state));
         }
     });
 }

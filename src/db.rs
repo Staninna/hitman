@@ -79,43 +79,15 @@ impl Db {
             AppError::InternalServerError
         })?;
 
-        let game_row = sqlx::query!(
-            r#"
-            SELECT
-                id,
-                code,
-                status,
-                host_id,
-                winner_id,
-                created_at
-            FROM games
-            WHERE code = ?
-            "#,
+        let game = sqlx::query_as!(
+            Game,
+            r#"SELECT id as "id!", code, status as "status: _", host_id, winner_id, created_at FROM games WHERE code = ?"#,
             game_code
         )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch game: {}", e);
-            AppError::InternalServerError
-        })?
-        .ok_or(AppError::NotFound("Game not found".to_string()))?;
-
-        let game_status: GameStatus = match game_row.status.as_str() {
-            "lobby" => GameStatus::Lobby,
-            "in_progress" => GameStatus::InProgress,
-            "finished" => GameStatus::Finished,
-            _ => return Err(AppError::InternalServerError),
-        };
-
-        let game = Game {
-            id: game_row.id.unwrap(),
-            code: game_row.code,
-            status: game_status,
-            host_id: game_row.host_id,
-            winner_id: game_row.winner_id,
-            created_at: game_row.created_at,
-        };
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| AppError::InternalServerError)?
+            .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
         if game.status != GameStatus::Lobby {
             return Err(AppError::UnprocessableEntity(
@@ -123,6 +95,31 @@ impl Db {
             ));
         }
 
+        if let Some(player) = self
+            .get_player_by_name(game.id, &player_name)
+            .await
+            .map_err(|_| AppError::InternalServerError)?
+        {
+            if player.is_alive {
+                // This is a reconnection
+                tx.commit()
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?;
+                return Ok((
+                    player.game_id,
+                    player.id,
+                    player.secret_code,
+                    player.auth_token,
+                ));
+            } else {
+                // Player is in the game but is dead
+                return Err(AppError::Forbidden(
+                    "You have been eliminated from this game.".to_string(),
+                ));
+            }
+        }
+
+        // New player
         let player_secret = Uuid::new_v4();
         let auth_token = Uuid::new_v4().to_string();
 
@@ -136,6 +133,11 @@ impl Db {
         .execute(&mut *tx)
         .await
         .map_err(|e| {
+            if let Some(db_err) = e.as_database_error() {
+                if db_err.is_unique_violation() {
+                    return AppError::UnprocessableEntity("Player name already taken".to_string());
+                }
+            }
             tracing::error!("Failed to insert player: {}", e);
             AppError::InternalServerError
         })?
@@ -153,7 +155,7 @@ impl Db {
         sqlx::query_as!(
             Player,
             r#"
-            SELECT id, name, secret_code as "secret_code: _", auth_token, is_alive, target_id, game_id, NULL as "target_name: _"
+            SELECT id as "id!", name, secret_code as "secret_code: _", auth_token, is_alive, target_id, game_id, NULL as "target_name: _"
             FROM players
             WHERE game_id = ?
             "#,
@@ -167,27 +169,17 @@ impl Db {
         &self,
         auth_token: &str,
     ) -> Result<Option<Player>, sqlx::Error> {
-        let row = sqlx::query!(
+        sqlx::query_as!(
+            Player,
             r#"
-            SELECT id, name, secret_code, auth_token, is_alive, target_id, game_id
+            SELECT id as "id!", name, secret_code as "secret_code: _", auth_token, is_alive, target_id, game_id, NULL as "target_name: _"
             FROM players
             WHERE auth_token = ?
             "#,
             auth_token
         )
         .fetch_optional(&self.0)
-        .await?;
-
-        Ok(row.map(|r| Player {
-            id: r.id.unwrap(),
-            name: r.name,
-            secret_code: r.secret_code.parse().unwrap(),
-            auth_token: r.auth_token,
-            is_alive: r.is_alive,
-            target_id: r.target_id,
-            game_id: r.game_id,
-            target_name: None,
-        }))
+        .await
     }
 
     pub async fn start_game(
@@ -201,32 +193,15 @@ impl Db {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        let game_row = sqlx::query!(
-            "SELECT id, code, status, host_id, winner_id, created_at FROM games WHERE code = ?",
+        let game = sqlx::query_as!(
+            Game,
+            r#"SELECT id as "id!", code, status as "status: _", host_id, winner_id, created_at FROM games WHERE code = ?"#,
             game_code
         )
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| AppError::InternalServerError)?
         .ok_or_else(|| AppError::NotFound("Game not found.".to_string()))?;
-
-        let game_status: GameStatus = match game_row.status.as_str() {
-            "lobby" => GameStatus::Lobby,
-            "in_progress" => GameStatus::InProgress,
-            "finished" => GameStatus::Finished,
-            _ => {
-                return Err(AppError::InternalServerError);
-            }
-        };
-
-        let game = Game {
-            id: game_row.id.unwrap(),
-            code: game_row.code,
-            status: game_status,
-            host_id: game_row.host_id,
-            winner_id: game_row.winner_id,
-            created_at: game_row.created_at,
-        };
 
         if game.host_id != Some(player_id) {
             return Err(AppError::Forbidden(
@@ -314,7 +289,7 @@ impl Db {
         &self,
         killer_token: &str,
         target_secret: &Uuid,
-    ) -> Result<(String, String, Option<String>), AppError> {
+    ) -> Result<(i64, String, String, Option<String>), AppError> {
         let mut tx = self.0.begin().await.map_err(|e| {
             tracing::error!("Failed to begin transaction: {}", e);
             AppError::InternalServerError
@@ -344,7 +319,7 @@ impl Db {
             AppError::InternalServerError
         })?;
 
-        Ok((killer.name, target.name, new_target_name))
+        Ok((killer.id, killer.name, target.name, new_target_name))
     }
 
     async fn get_player_by_auth_token_in_tx(
@@ -419,7 +394,7 @@ impl Db {
         sqlx::query_as!(
             Game,
             r#"
-            SELECT id, code, status as "status: _", host_id, winner_id, created_at
+            SELECT id as "id!", code, status as "status: _", host_id, winner_id, created_at
             FROM games
             WHERE id = ?
             "#,
@@ -532,6 +507,72 @@ impl Db {
         .fetch_one(&self.0)
         .await?;
         Ok(game_code)
+    }
+
+    pub async fn get_player_by_name(
+        &self,
+        game_id: i64,
+        player_name: &str,
+    ) -> Result<Option<Player>, AppError> {
+        sqlx::query_as!(
+            Player,
+            r#"
+            SELECT
+                id as "id!",
+                name as "name!",
+                secret_code as "secret_code!: Uuid",
+                auth_token as "auth_token!",
+                is_alive as "is_alive!",
+                target_id,
+                game_id as "game_id!",
+                NULL as "target_name: _"
+            FROM players
+            WHERE game_id = ? AND name = ?
+            "#,
+            game_id,
+            player_name
+        )
+        .fetch_optional(&self.0)
+        .await
+        .map_err(|_| AppError::InternalServerError)
+    }
+
+    pub async fn get_game_by_code(&self, code: &str) -> Result<Option<Game>, AppError> {
+        sqlx::query_as!(
+            Game,
+            r#"
+            SELECT id as "id!", code, status as "status: _", host_id, winner_id, created_at
+            FROM games
+            WHERE code = ?
+            "#,
+            code
+        )
+        .fetch_optional(&self.0)
+        .await
+        .map_err(|_| AppError::InternalServerError)
+    }
+
+    pub async fn get_player_by_id(&self, player_id: i64) -> Result<Option<Player>, AppError> {
+        sqlx::query_as!(
+            Player,
+            r#"
+            SELECT
+                id as "id!",
+                name as "name!",
+                secret_code as "secret_code!: Uuid",
+                auth_token as "auth_token!",
+                is_alive as "is_alive!",
+                target_id,
+                game_id as "game_id!",
+                NULL as "target_name: _"
+            FROM players
+            WHERE id = ?
+            "#,
+            player_id
+        )
+        .fetch_optional(&self.0)
+        .await
+        .map_err(|_| AppError::InternalServerError)
     }
 }
 

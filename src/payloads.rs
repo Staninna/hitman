@@ -46,6 +46,16 @@ pub struct PlayerJoinedPayload {
 }
 
 #[derive(Debug, Serialize)]
+pub struct PlayerLeftPayload {
+    pub player_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlayerReconnectedPayload {
+    pub player_name: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct GameStartedPayload {
     pub players: Vec<Player>,
 }

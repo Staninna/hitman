@@ -24,7 +24,7 @@ pub async fn kill_handler(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Query(query): Query<KillQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let (killer_name, eliminated_player_name, new_target_name) =
+    let (killer_id, killer_name, eliminated_player_name, new_target_name) =
         state.db.process_kill(auth.token(), &query.secret).await?;
 
     let room = state
@@ -34,7 +34,14 @@ pub async fn kill_handler(
         .map_err(|_| AppError::InternalServerError)?;
 
     broadcast_player_eliminated(&state, &room, &killer_name, &eliminated_player_name).await;
-    notify_killer_of_new_target_or_game_over(&state, &room, &killer_name, new_target_name).await;
+    notify_killer_of_new_target_or_game_over(
+        &state,
+        &room,
+        killer_id,
+        &killer_name,
+        new_target_name,
+    )
+    .await;
 
     Ok((StatusCode::OK, Json("Kill confirmed")))
 }
@@ -60,24 +67,22 @@ async fn broadcast_player_eliminated(
 async fn notify_killer_of_new_target_or_game_over(
     state: &AppState,
     room: &str,
+    killer_id: i64,
     killer_name: &str,
     new_target_name: Option<String>,
 ) {
     if let Some(target_name) = new_target_name {
-        notify_new_target(state, room, target_name).await;
+        notify_new_target(state, killer_id, target_name).await;
     } else {
         notify_game_over(state, room, killer_name).await;
     }
 }
 
-async fn notify_new_target(state: &AppState, room: &str, target_name: String) {
+async fn notify_new_target(state: &AppState, killer_id: i64, target_name: String) {
     let new_target_payload = NewTarget { target_name };
-    state
-        .io
-        .to(room.to_string())
-        .emit("new_target", &new_target_payload)
-        .await
-        .ok();
+    if let Some(socket) = state.connected_players.get(&killer_id) {
+        socket.emit("new_target", &new_target_payload).ok();
+    }
 }
 
 async fn notify_game_over(state: &AppState, room: &str, winner_name: &str) {
