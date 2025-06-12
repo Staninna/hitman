@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{Player, Game};
+use crate::models::{Game, Player};
 
 // --- Client-to-Server Payloads ---
 

@@ -1,6 +1,6 @@
 use crate::{
     errors::AppError,
-    models::{Game, GameStatus, Player, GameInfo},
+    models::{Game, GameInfo, GameStatus, Player},
 };
 use rand::seq::SliceRandom;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
@@ -717,7 +717,10 @@ impl Db {
     }
 
     pub async fn leave_game(&self, game_code: &str, auth_token: &str) -> Result<(), AppError> {
-        info!("Player with token {} leaving game {}", auth_token, game_code);
+        info!(
+            "Player with token {} leaving game {}",
+            auth_token, game_code
+        );
         let mut tx = self.0.begin().await.map_err(|e| {
             tracing::error!("Failed to begin transaction: {}", e);
             AppError::InternalServerError

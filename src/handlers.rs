@@ -8,14 +8,14 @@ use crate::{
     utils::generate_game_code,
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -51,7 +51,10 @@ pub async fn create_game(
     let players = state.db.get_players_by_game_id(game_id).await?;
     debug!("Fetched players: {:?}", players);
 
-    let game = state.db.get_game_by_code(&game_code).await?
+    let game = state
+        .db
+        .get_game_by_code(&game_code)
+        .await?
         .ok_or_else(|| AppError::InternalServerError)?;
 
     let response = GameCreatedPayload {
@@ -86,7 +89,10 @@ pub async fn join_game(
     let players = state.db.get_players_by_game_id(game_id).await?;
     debug!("Fetched players for game {}: {:?}", game_code, players);
 
-    let game = state.db.get_game_by_code(&game_code).await?
+    let game = state
+        .db
+        .get_game_by_code(&game_code)
+        .await?
         .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
 
     let response = GameJoinedPayload {
@@ -139,9 +145,8 @@ pub async fn kill_handler(
         payload.secret_code
     );
 
-    let secret = Uuid::parse_str(&payload.secret_code).map_err(|_| {
-        AppError::UnprocessableEntity("Invalid secret code format".to_string())
-    })?;
+    let secret = Uuid::parse_str(&payload.secret_code)
+        .map_err(|_| AppError::UnprocessableEntity("Invalid secret code format".to_string()))?;
 
     let (killer_id, killer_name, eliminated_player_name, new_target_name) = state
         .db
@@ -189,10 +194,7 @@ pub async fn leave_game(
         game_code, payload.auth_token
     );
 
-    state
-        .db
-        .leave_game(&game_code, &payload.auth_token)
-        .await?;
+    state.db.leave_game(&game_code, &payload.auth_token).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }

@@ -1,20 +1,17 @@
-use std::convert::Infallible;
-use std::time::Duration;
+use crate::{models::Game, state::AppState};
+use axum::http::StatusCode;
 use axum::{
+    extract::{Path, Query, State},
     response::{
         sse::{Event, Sse},
-        IntoResponse, Html,
+        Html, IntoResponse,
     },
-    extract::{State, Path, Query},
 };
 use serde::{Deserialize, Serialize};
-use tera::{Context};
+use std::convert::Infallible;
+use std::time::Duration;
+use tera::Context;
 use uuid::Uuid;
-use crate::{
-    models::{Game},
-    state::AppState,
-};
-use axum::http::StatusCode;
 
 #[derive(Serialize)]
 struct GameState {
@@ -130,20 +127,18 @@ pub async fn sse_handler(
     Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::new())
 }
 
-pub async fn index(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn index(State(state): State<AppState>) -> impl IntoResponse {
     let mut context = Context::new();
-    
+
     let index_context = IndexContext {
         is_game_page: false,
         show_join_modal: false,
         is_rejoin_page: false,
         ..Default::default()
     };
-    
+
     context.insert("ctx", &index_context);
-    
+
     match state.tera.render("welcome.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
@@ -155,16 +150,24 @@ pub async fn game_page(
     Path(game_code): Path<String>,
 ) -> impl IntoResponse {
     let mut context = Context::new();
-    
+
     // Check if the game exists and get its details
     let (game_exists, game_name, player_count) = match state.db.get_game_by_code(&game_code).await {
         Ok(Some(game)) => {
-            let players = state.db.get_players_by_game_id(game.id).await.unwrap_or_default();
-            (true, Some(format!("Game {}", game.code)), Some(players.len()))
-        },
-        _ => (false, None, None)
+            let players = state
+                .db
+                .get_players_by_game_id(game.id)
+                .await
+                .unwrap_or_default();
+            (
+                true,
+                Some(format!("Game {}", game.code)),
+                Some(players.len()),
+            )
+        }
+        _ => (false, None, None),
     };
-    
+
     let index_context = IndexContext {
         game_code: Some(game_code.clone()),
         game_exists: Some(game_exists),
@@ -175,9 +178,9 @@ pub async fn game_page(
         is_rejoin_page: false,
         ..Default::default()
     };
-    
+
     context.insert("ctx", &index_context);
-    
+
     match state.tera.render("join_game.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
@@ -205,7 +208,8 @@ pub async fn rejoin_page(
                 index_context.game_exists = Some(true);
                 index_context.player_id = Some(player.id);
                 index_context.player_name = Some(player.name);
-                index_context.rejoin_link = Some(format!("/game/{}/player/{}", game_code, auth_token));
+                index_context.rejoin_link =
+                    Some(format!("/game/{}/player/{}", game_code, auth_token));
             } else {
                 index_context.game_exists = Some(false);
             }
@@ -215,7 +219,7 @@ pub async fn rejoin_page(
     } else {
         index_context.game_exists = Some(false);
     }
-    
+
     context.insert("ctx", &index_context);
 
     match state.tera.render("game.html", &context) {
