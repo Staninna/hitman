@@ -68,7 +68,7 @@ impl Default for IndexContext {
     }
 }
 
-// TODO: add a dashmap to store and refetch with game code so this handler is not queried the db every second 
+// TODO: add a dashmap to store and refetch with game code so this handler is not queried the db every second
 //       this refetch should only be set when a modification happens to the game updates we can remove last_state
 pub async fn sse_handler(
     Path(game_code): Path<String>,
