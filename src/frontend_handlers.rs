@@ -35,6 +35,7 @@ struct PlayerSse {
 #[derive(Deserialize)]
 pub struct SseParams {
     player_id: Option<i64>,
+    auth_token: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -77,6 +78,8 @@ pub async fn sse_handler(
     State(state): State<AppState>,
     Query(params): Query<SseParams>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
+    let mut last_state = String::new();
+
     let stream = async_stream::stream! {
         loop {
             match state.db.get_game_state(&game_code).await {
@@ -85,32 +88,29 @@ pub async fn sse_handler(
                         id: p.id,
                         name: p.name.clone(),
                         is_alive: p.is_alive,
-                        target_name: p.target_name.clone(),
+                        target_name: None,
                         secret_code: None,
                     }).collect();
 
-                    if let Some(player_id) = params.player_id {
-                        // Set target name
-                        if let Some(target_id) = players.iter().find(|p| p.id == player_id).and_then(|p| p.target_id) {
-                            if let Some(target) = players.iter().find(|p| p.id == target_id) {
-                                if let Some(me) = sse_players.iter_mut().find(|p| p.id == player_id) {
-                                    me.target_name = Some(target.name.clone());
+                    if let (Some(player_id), Some(auth_token)) = (params.player_id, params.auth_token.as_ref()) {
+                        if let Some(me_full) = players.iter().find(|p| p.id == player_id) {
+                            if me_full.auth_token == *auth_token {
+                                if let Some(me_sse) = sse_players.iter_mut().find(|p| p.id == player_id) {
+                                    me_sse.target_name = me_full.target_name.clone();
+                                    me_sse.secret_code = Some(me_full.secret_code);
                                 }
-                            }
-                        }
-
-                        // Set secret code only for the requesting player
-                        if let Some(me) = sse_players.iter_mut().find(|p| p.id == player_id) {
-                            if let Some(me_full) = players.iter().find(|p| p.id == player_id) {
-                                me.secret_code = Some(me_full.secret_code);
                             }
                         }
                     }
 
                     let game_state = GameState { game, players: sse_players };
-                    let event = Event::default()
-                        .data(serde_json::to_string(&game_state).unwrap());
-                    yield Ok(event);
+                    if let Ok(current_state) = serde_json::to_string(&game_state) {
+                        if last_state != current_state {
+                            let event = Event::default().data(current_state.clone());
+                            yield Ok(event);
+                            last_state = current_state;
+                        }
+                    }
                 }
                 Ok(None) => {
                     let event = Event::default().event("error").data("Game not found");

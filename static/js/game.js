@@ -64,8 +64,8 @@ function connectToGameStream() {
     }
 
     let url = `${API_BASE_URL}/events/${gameCode}`;
-    if (playerId) {
-        url += `?player_id=${playerId}`;
+    if (playerId && authToken) {
+        url += `?player_id=${playerId}&auth_token=${authToken}`;
     }
 
     eventSource = new EventSource(url);
