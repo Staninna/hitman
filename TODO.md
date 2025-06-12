@@ -1,0 +1,1 @@
+- [ ] leave button in lobby needs to remove the entry for the player in the game

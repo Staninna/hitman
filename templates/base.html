@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hitman Game{% endblock title %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/xp.css" />
+    <style>
+        body {
+            background: url('https://www.newegg.com/insider/wp-content/uploads/windows_xp_bliss-wide.jpg') no-repeat center center fixed;
+            background-size: cover;
+            overflow: hidden;
+        }
+        .center-container {
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             height: 100vh;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 5;
+            display: none;
+        }
+        .screen {
+            display: none;
+        }
+        .error-message {
+            color: #cc0000;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .info-message {
+            color: #006600;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+    </style>
+    {% block head %}{% endblock head %}
+</head>
+<body>
+    {% block body %}{% endblock body %}
+    <script src="/static/js/common.js"></script>
+    {% block scripts %}{% endblock scripts %}
+</body>
+</html> 

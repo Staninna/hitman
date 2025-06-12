@@ -5,9 +5,9 @@ use axum::{
         sse::{Event, Sse},
         IntoResponse, Html,
     },
-    extract::{State, Path},
+    extract::{State, Path, Query},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tera::{Context};
 use crate::{
     models::{Game, Player},
@@ -19,6 +19,11 @@ use axum::http::StatusCode;
 struct GameState {
     game: Game,
     players: Vec<Player>,
+}
+
+#[derive(Deserialize)]
+pub struct SseParams {
+    player_id: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -54,15 +59,29 @@ impl Default for IndexContext {
     }
 }
 
+// TODO: Only send events on connection and when the game state changes
 pub async fn sse_handler(
     Path(game_code): Path<String>,
     State(state): State<AppState>,
+    Query(params): Query<SseParams>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
     let stream = async_stream::stream! {
         loop {
             match state.db.get_game_state(&game_code).await {
                 Ok(Some((game, players))) => {
-                    let game_state = GameState { game, players };
+                    let mut new_players = players.clone();
+
+                    if let Some(player_id) = params.player_id {
+                        if let Some(target_id) = players.iter().find(|p| p.id == player_id).and_then(|p| p.target_id) {
+                            if let Some(target) = players.iter().find(|p| p.id == target_id) {
+                                if let Some(me) = new_players.iter_mut().find(|p| p.id == player_id) {
+                                    me.target_name = Some(target.name.clone());
+                                }
+                            }
+                        }
+                    }
+
+                    let game_state = GameState { game, players: new_players };
                     let event = Event::default()
                         .data(serde_json::to_string(&game_state).unwrap());
                     yield Ok(event);
@@ -99,9 +118,9 @@ pub async fn index(
     
     context.insert("ctx", &index_context);
     
-    match state.tera.render("index.html", &context) {
+    match state.tera.render("welcome.html", &context) {
         Ok(s) => Html(s).into_response(),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
 }
 
@@ -133,9 +152,9 @@ pub async fn game_page(
     
     context.insert("ctx", &index_context);
     
-    match state.tera.render("index.html", &context) {
+    match state.tera.render("join_game.html", &context) {
         Ok(s) => Html(s).into_response(),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
 }
 
@@ -147,6 +166,7 @@ pub async fn rejoin_page(
 
     let mut index_context = IndexContext {
         is_rejoin_page: true,
+        is_game_page: true,
         game_code: Some(game_code.clone()),
         auth_token: Some(auth_token.clone()),
         ..Default::default()
@@ -172,8 +192,8 @@ pub async fn rejoin_page(
     
     context.insert("ctx", &index_context);
 
-    match state.tera.render("index.html", &context) {
+    match state.tera.render("game.html", &context) {
         Ok(s) => Html(s).into_response(),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
 }

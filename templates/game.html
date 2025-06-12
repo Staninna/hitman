@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Hitman Game{% endblock title %}
+
+{% block body_attributes %}{% endblock body_attributes %}
+
+{% block body %}
+<script id="server-context" type="application/json">{{ ctx | json_encode | safe }}</script>
+<div id="gameView">
+    <div class="window" style="margin: 32px; width: 500px">
+        <div class="title-bar">
+            <div id="gameViewTitle" class="title-bar-text">Hitman Lobby</div>
+             <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            <!-- Screens will be swapped inside this container -->
+            <div id="gameLobby" class="screen">
+                <h3 id="lobbyGameName" style="text-align: center;">Game Lobby</h3>
+                <fieldset id="rejoinLinkContainer">
+                    <legend>Your Personal Rejoin Link</legend>
+                    <p>Bookmark or save this link! If you get disconnected, you can use it to get back into the game.</p>
+                    <input id="rejoinLink" type="text" readonly style="width: 100%; margin-top: 5px;"/>
+                    <button id="copyRejoinLinkBtn" style="width: 100%; margin-top: 5px;">Copy Rejoin Link</button>
+                </fieldset>
+                <fieldset id="inviteContainer">
+                    <legend>Invite Other Players</legend>
+                    <p>Share the link or QR code below with other players to have them join your game.</p>
+                    <div style="display: flex; justify-content: space-evenly; align-items: center; padding-top: 10px;">
+                        <div style="text-align: center;">
+                            <label>Scan Code:</label>
+                            <div class="qr-container" style="background:white; padding:10px; border: 1px solid grey; margin-top: 5px;">
+                                <img id="qrCode" alt="QR Code" style="width: 110px; height: 110px;"/>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <label for="shareLink">Or Copy Link:</label>
+                            <input id="shareLink" type="text" readonly style="width: 220px; margin-top: 5px;"/>
+                            <button id="copyLinkBtn" style="width: 220px; margin-top: 5px;">Copy Link to Clipboard</button>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset id="playerListContainer" style="margin-top: 15px;">
+                    <legend>Players</legend>
+                    <ul id="playerList" class="tree-view"></ul>
+                </fieldset>
+                <section id="lobbyActions" class="field-row" style="justify-content: flex-end">
+                    <button>Leave</button>
+                    <button id="startGameBtn" style="display: none;">Start Game</button>
+                </section>
+            </div>
+
+            <div id="gamePlaying" class="screen">
+                <fieldset id="targetInfo">
+                    <legend>Your Target</legend>
+                </fieldset>
+                <fieldset>
+                    <legend>Assassination</legend>
+                    <div class="field-row-stacked">
+                        <label for="assassinationCode">Enter target's secret code:</label>
+                        <input id="assassinationCode" type="text" />
+                    </div>
+                    <div class="field-row" style="justify-content: flex-end">
+                        <button>Assassinate</button>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <legend>Active Players</legend>
+                    <ul id="gamePlayerList" class="tree-view"></ul>
+                </fieldset>
+            </div>
+
+            <div id="gameFinished" class="screen">
+                <h3 style="text-align:center;">Game Over!</h3>
+                <p id="winnerText" style="text-align:center; font-size: 1.2em; margin: 20px;"></p>
+                <section class="field-row" style="justify-content: center">
+                    <button>Back to Main Menu</button>
+                </section>
+            </div>
+
+            <div id="deathScreen" class="screen">
+                <h3 style="text-align:center;">You've Been Eliminated!</h3>
+                <p>You can no longer participate, but you can spectate.</p>
+                <p id="killerInfo" style="text-align:center; font-weight: bold; margin-top: 10px;"></p>
+                <section class="field-row" style="justify-content: center; margin-top: 20px;">
+                    <button>Back to Main Menu</button>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block scripts %}
+<script src="/static/js/game.js"></script>
+{% endblock scripts %} 

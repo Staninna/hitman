@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Join {{ ctx.game_name }}{% endblock title %}
+
+{% block body %}
+<script id="server-context" type="application/json">{{ ctx | json_encode | safe }}</script>
+<div class="center-container">
+    <div class="window" style="width: 400px">
+        <div class="title-bar">
+            <div class="title-bar-text">
+                {% if ctx.game_exists %}
+                    Join {{ ctx.game_name }}
+                {% else %}
+                    Game Not Found
+                {% endif %}
+            </div>
+        </div>
+        <div class="window-body">
+            {% if ctx.game_exists %}
+                <h4>Join Game: {{ ctx.game_code }}</h4>
+                <p class="info-message">This game currently has {{ ctx.player_count }} player(s).</p>
+                <p style="margin-bottom: 20px;">Enter your name to join this game, or create a new game instead.</p>
+                <div class="field-row" style="justify-content: center;">
+                    <button>Join This Game</button>
+                    <button>Create New Game</button>
+                </div>
+            {% else %}
+                <h4>Game Not Found</h4>
+                <p class="error-message">The game "{{ ctx.game_code }}" could not be found.</p>
+                <p style="margin-bottom: 20px;">It may have ended or the code might be incorrect. You can create a new game or try a different code.</p>
+                <div class="field-row" style="justify-content: center;">
+                    <button>Create New Game</button>
+                    <button id="tryDifferentCode">Try Different Code</button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="createGameModal" class="overlay">
+    <div class="window" style="width: 300px; margin: auto;">
+        <div class="title-bar">
+            <div class="title-bar-text">Create New Game</div>
+        </div>
+        <div class="window-body">
+            <fieldset>
+                <legend>Your Details</legend>
+                <div class="field-row-stacked" style="width: 200px; margin: 0 auto;">
+                    <label for="creatorName">Your Name:</label>
+                    <input id="creatorName" type="text" />
+                </div>
+            </fieldset>
+            <section class="field-row" style="justify-content: flex-end">
+                <button>Cancel</button>
+                <button>Create</button>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div id="joinGameModal" class="overlay">
+    <div class="window" style="width: 300px; margin: auto;">
+        <div class="title-bar">
+            <div class="title-bar-text">Join Existing Game</div>
+        </div>
+        <div class="window-body">
+            <fieldset>
+                <legend>Game Details</legend>
+                <div class="field-row-stacked" style="width: 200px">
+                    <label for="gameId">Game ID:</label>
+                    <input id="gameId" type="text" />
+                </div>
+                <div class="field-row-stacked" style="width: 200px">
+                    <label for="playerName">Your Name:</label>
+                    <input id="playerName" type="text" />
+                </div>
+            </fieldset>
+             <section class="field-row" style="justify-content: flex-end">
+                <button>Cancel</button>
+                <button>Join</button>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block scripts %}
+<script src="/static/js/welcome.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const serverContextElement = document.getElementById('server-context');
+        if (serverContextElement) {
+            const serverContext = JSON.parse(serverContextElement.textContent);
+            const gameIdInput = document.getElementById('gameId');
+            if (gameIdInput && serverContext.game_code) {
+                gameIdInput.value = serverContext.game_code;
+            }
+        }
+
+        const tryDifferentCodeButton = document.getElementById('tryDifferentCode');
+        if (tryDifferentCodeButton) {
+            tryDifferentCodeButton.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+        }
+
+        const joinGameButton = document.querySelector('.window-body button');
+        if (joinGameButton && joinGameButton.textContent.includes('Join This Game')) {
+            joinGameButton.addEventListener('click', () => showModal('joinGameModal'));
+        }
+
+        const createGameButton = document.querySelector('.window-body button:nth-child(2)');
+        if(createGameButton && createGameButton.textContent.includes('Create New Game')) {
+            createGameButton.addEventListener('click', () => showModal('createGameModal'));
+        }
+    });
+</script>
+{% endblock scripts %} 
