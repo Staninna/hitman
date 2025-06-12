@@ -38,7 +38,7 @@ pub async fn create_game(
     let game_code = generate_game_code(game_code_len);
     debug!("Generated game code: {}", game_code);
 
-    let (game_id, _player_id, player_secret, auth_token) = state
+    let (game_id, player_id, player_secret, auth_token) = state
         .db
         .create_game(payload.player_name, game_code.clone())
         .await?;
@@ -51,11 +51,16 @@ pub async fn create_game(
     let players = state.db.get_players_by_game_id(game_id).await?;
     debug!("Fetched players: {:?}", players);
 
+    let game = state.db.get_game_by_code(&game_code).await?
+        .ok_or_else(|| AppError::InternalServerError)?;
+
     let response = GameCreatedPayload {
         game_code,
+        player_id,
         player_secret,
         auth_token,
         players,
+        game,
     };
 
     Ok((StatusCode::CREATED, Json(response)))
@@ -68,7 +73,7 @@ pub async fn join_game(
 ) -> Result<impl IntoResponse, AppError> {
     info!("Received join_game for game {}: {:?}", game_code, payload);
 
-    let (game_id, _player_id, player_secret, auth_token) = state
+    let (game_id, player_id, player_secret, auth_token) = state
         .db
         .join_game(game_code.clone(), payload.player_name)
         .await?;
@@ -81,11 +86,16 @@ pub async fn join_game(
     let players = state.db.get_players_by_game_id(game_id).await?;
     debug!("Fetched players for game {}: {:?}", game_code, players);
 
+    let game = state.db.get_game_by_code(&game_code).await?
+        .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
+
     let response = GameJoinedPayload {
         game_code,
+        player_id,
         player_secret,
         auth_token,
         players,
+        game,
     };
 
     Ok(Json(response))
@@ -163,4 +173,22 @@ pub async fn get_game_state(
     let players = state.db.get_players_by_game_id(game.unwrap().id).await?;
     debug!("Fetched players for game {}: {:?}", game_code, players);
     Ok(Json(players))
+}
+
+pub async fn leave_game(
+    State(state): State<AppState>,
+    Path(game_code): Path<String>,
+    Json(payload): Json<crate::payloads::LeaveGamePayload>,
+) -> Result<impl IntoResponse, AppError> {
+    info!(
+        "Received leave_game for game {}: auth_token: {}",
+        game_code, payload.auth_token
+    );
+
+    state
+        .db
+        .leave_game(&game_code, &payload.auth_token)
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

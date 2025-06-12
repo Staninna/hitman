@@ -1,0 +1,12 @@
+body, html {
+    font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-size: 16px;
+}
+
+/* Remove the redundant font-face definition and other styles if they are covered by xp.css */ 

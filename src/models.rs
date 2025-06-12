@@ -26,11 +26,12 @@ pub struct Player {
     pub target_name: Option<String>,
 }
 
-#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Game {
     pub id: i64,
     pub status: GameStatus,
     pub host_id: Option<i64>,
+    pub code: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]

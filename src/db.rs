@@ -127,7 +127,8 @@ impl Db {
             SELECT
                 id as "id!",
                 status as "status: _",
-                host_id as "host_id: _"
+                host_id as "host_id: _",
+                code as "code: _"
             FROM games
             WHERE code = ?
             "#,
@@ -287,7 +288,8 @@ impl Db {
             SELECT
                 id as "id!",
                 status as "status: _",
-                host_id as "host_id: _"
+                host_id as "host_id: _",
+                code as "code: _"
             FROM games
             WHERE code = ?
             "#,
@@ -500,7 +502,8 @@ impl Db {
             SELECT
                 id as "id!",
                 status as "status: _",
-                host_id as "host_id: _"
+                host_id as "host_id: _",
+                code as "code: _"
             FROM games
             WHERE code = ?
             "#,
@@ -686,7 +689,8 @@ impl Db {
             SELECT
                 id as "id!",
                 status as "status: _",
-                host_id as "host_id: _"
+                host_id as "host_id: _",
+                code as "code: _"
             FROM games
             WHERE code = ?
             "#,
@@ -703,12 +707,58 @@ impl Db {
         &self,
         game_code: &str,
     ) -> Result<Option<(Game, Vec<Player>)>, AppError> {
-        if let Some(game) = self.get_game_by_code(game_code).await? {
-            let players = self.get_players_by_game_id(game.id).await?;
-            Ok(Some((game, players)))
-        } else {
-            Ok(None)
+        let game = self.get_game_by_code(game_code).await?;
+        if game.is_none() {
+            return Ok(None);
         }
+        let game = game.unwrap();
+        let players = self.get_players_by_game_id(game.id).await?;
+        Ok(Some((game, players)))
+    }
+
+    pub async fn leave_game(&self, game_code: &str, auth_token: &str) -> Result<(), AppError> {
+        info!("Player with token {} leaving game {}", auth_token, game_code);
+        let mut tx = self.0.begin().await.map_err(|e| {
+            tracing::error!("Failed to begin transaction: {}", e);
+            AppError::InternalServerError
+        })?;
+
+        let game = self.get_game_by_code_in_tx(&mut tx, game_code).await?;
+        let player = self
+            .get_player_by_auth_token_in_tx(&mut tx, auth_token, game.id)
+            .await?;
+
+        sqlx::query!(
+            "UPDATE players SET is_alive = false WHERE id = ?",
+            player.id
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)?;
+
+        tx.commit()
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        Ok(())
+    }
+
+    pub async fn get_game_by_id(&self, game_id: i64) -> Result<Option<Game>, sqlx::Error> {
+        sqlx::query_as!(
+            Game,
+            r#"
+            SELECT
+                id as "id!",
+                status as "status: _",
+                host_id as "host_id: _",
+                code as "code: _"
+            FROM games
+            WHERE id = ?
+            "#,
+            game_id
+        )
+        .fetch_optional(&self.0)
+        .await
     }
 }
 

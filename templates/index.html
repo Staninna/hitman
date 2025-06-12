@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hitman Game</title>
+    <title>{% if ctx.is_game_page %}{% if ctx.game_exists %}Join {{ ctx.game_name }}{% else %}Game Not Found{% endif %}{% else %}Hitman Game{% endif %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/main.js" defer></script>
     <link rel="stylesheet" href="https://unpkg.com/xp.css" />
     <style>
         body {
@@ -31,7 +33,30 @@
             z-index: 5;
             display: none;
         }
+
+        /* Hide all screens by default - only show when activated by JavaScript */
+        .screen {
+            display: none;
+        }
+
+        .error-message {
+            color: #cc0000;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .info-message {
+            color: #006600;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
     </style>
+    <script>
+        // Pass server context to JavaScript
+        window.serverContext = {{ ctx | json_encode | safe }};
+    </script>
 </head>
 
 <body>
@@ -41,15 +66,45 @@
     <div id="welcomeView" class="center-container">
         <div class="window" style="width: 400px">
             <div class="title-bar">
-                <div class="title-bar-text">Hitman Game</div>
+                <div class="title-bar-text">
+                    {% if ctx.is_game_page %}
+                        {% if ctx.game_exists %}
+                            Join {{ ctx.game_name }}
+                        {% else %}
+                            Game Not Found
+                        {% endif %}
+                    {% else %}
+                        Hitman Game
+                    {% endif %}
+                </div>
             </div>
             <div class="window-body">
-                <h4>Welcome to Hitman!</h4>
-                <p style="margin-bottom: 20px;">Create a new game to become the host, or join an existing game using a code from a friend.</p>
-                <div class="field-row" style="justify-content: center;">
-                    <button onclick="showModal('createGameModal')">Create New Game</button>
-                    <button onclick="showModal('joinGameModal')">Join Existing Game</button>
-                </div>
+                {% if ctx.is_game_page %}
+                    {% if ctx.game_exists %}
+                        <h4>Join Game: {{ ctx.game_code }}</h4>
+                        <p class="info-message">This game currently has {{ ctx.player_count }} player(s).</p>
+                        <p style="margin-bottom: 20px;">Enter your name to join this game, or create a new game instead.</p>
+                        <div class="field-row" style="justify-content: center;">
+                            <button onclick="showModal('joinGameModal')">Join This Game</button>
+                            <button onclick="showModal('createGameModal')">Create New Game</button>
+                        </div>
+                    {% else %}
+                        <h4>Game Not Found</h4>
+                        <p class="error-message">The game "{{ ctx.game_code }}" could not be found.</p>
+                        <p style="margin-bottom: 20px;">It may have ended or the code might be incorrect. You can create a new game or try a different code.</p>
+                        <div class="field-row" style="justify-content: center;">
+                            <button onclick="showModal('createGameModal')">Create New Game</button>
+                            <button onclick="showModal('joinGameModal')">Try Different Code</button>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <h4>Welcome to Hitman!</h4>
+                    <p style="margin-bottom: 20px;">Create a new game to become the host, or join an existing game using a code from a friend.</p>
+                    <div class="field-row" style="justify-content: center;">
+                        <button onclick="showModal('createGameModal')">Create New Game</button>
+                        <button onclick="showModal('joinGameModal')">Join Existing Game</button>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -86,7 +141,7 @@
                     <legend>Game Details</legend>
                     <div class="field-row-stacked" style="width: 200px">
                         <label for="gameId">Game ID:</label>
-                        <input id="gameId" type="text" />
+                        <input id="gameId" type="text" value="{% if ctx.game_code %}{{ ctx.game_code }}{% endif %}" />
                     </div>
                     <div class="field-row-stacked" style="width: 200px">
                         <label for="playerName">Your Name:</label>
@@ -117,7 +172,13 @@
                 <div id="gameLobby" class="screen">
                     <h3 id="lobbyGameName" style="text-align: center;">Game Lobby</h3>
                     <fieldset>
-                        <legend>Invite Players</legend>
+                        <legend>Your Personal Rejoin Link</legend>
+                        <p>Bookmark or save this link! If you get disconnected, you can use it to get back into the game.</p>
+                        <input id="rejoinLink" type="text" readonly style="width: 100%; margin-top: 5px;"/>
+                        <button id="copyRejoinLinkBtn" style="width: 100%; margin-top: 5px;">Copy Rejoin Link</button>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Invite Other Players</legend>
                         <p>Share the link or QR code below with other players to have them join your game.</p>
                         <div style="display: flex; justify-content: space-evenly; align-items: center; padding-top: 10px;">
                             <div style="text-align: center;">

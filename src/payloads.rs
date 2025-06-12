@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::Player;
+use crate::models::{Player, Game};
 
 // --- Client-to-Server Payloads ---
 
@@ -20,22 +20,31 @@ pub struct StartGamePayload {
     pub auth_token: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LeaveGamePayload {
+    pub auth_token: String,
+}
+
 // --- Server-to-Client Payloads ---
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameCreatedPayload {
     pub game_code: String,
+    pub player_id: i64,
     pub player_secret: Uuid,
     pub auth_token: String,
     pub players: Vec<Player>,
+    pub game: Game,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameJoinedPayload {
     pub game_code: String,
+    pub player_id: i64,
     pub player_secret: Uuid,
     pub auth_token: String,
     pub players: Vec<Player>,
+    pub game: Game,
 }
 
 #[derive(Debug, Serialize)]
