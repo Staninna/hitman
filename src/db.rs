@@ -1,6 +1,6 @@
 use crate::{
     errors::AppError,
-    models::{Game, GameStatus, Player},
+    models::{Game, GameStatus, Player, GameInfo},
 };
 use rand::seq::SliceRandom;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
@@ -26,6 +26,22 @@ impl Db {
         info!("Database migrations complete.");
 
         Ok(Db(pool))
+    }
+
+    pub async fn get_all_games(&self) -> Result<Vec<GameInfo>, sqlx::Error> {
+        let games = sqlx::query_as!(
+            GameInfo,
+            r#"
+            SELECT
+                g.code,
+                g.status as "status: _",
+                (SELECT COUNT(*) FROM players p WHERE p.game_id = g.id) as "player_count!"
+            FROM games g
+            "#
+        )
+        .fetch_all(&self.0)
+        .await?;
+        Ok(games)
     }
 
     pub async fn create_game(
@@ -681,6 +697,18 @@ impl Db {
         .map_err(|_| AppError::InternalServerError)?;
         debug!("Found game: {:?}", game);
         Ok(game)
+    }
+
+    pub async fn get_game_state(
+        &self,
+        game_code: &str,
+    ) -> Result<Option<(Game, Vec<Player>)>, AppError> {
+        if let Some(game) = self.get_game_by_code(game_code).await? {
+            let players = self.get_players_by_game_id(game.id).await?;
+            Ok(Some((game, players)))
+        } else {
+            Ok(None)
+        }
     }
 }
 

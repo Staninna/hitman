@@ -26,9 +26,16 @@ pub struct Player {
     pub target_name: Option<String>,
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Game {
     pub id: i64,
     pub status: GameStatus,
     pub host_id: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]
+pub struct GameInfo {
+    pub code: String,
+    pub status: GameStatus,
+    pub player_count: i64,
 }

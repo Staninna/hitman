@@ -1,6 +1,8 @@
 use crate::db::Db;
+use tera::Tera;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppState {
     pub db: Db,
+    pub tera: Tera,
 }

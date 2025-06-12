@@ -1,4 +1,5 @@
 use hitman::{create_router, db::Db, state::AppState};
+use tera::Tera;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::prelude::*;
 
@@ -15,8 +16,9 @@ async fn main() {
         .init();
 
     let db = Db::new().await.expect("Failed to create database pool");
+    let tera = Tera::new("templates/**/*").expect("Failed to create Tera instance");
 
-    let app_state = AppState { db };
+    let app_state = AppState { db, tera };
 
     let app = create_router(app_state).layer(
         CorsLayer::new()
