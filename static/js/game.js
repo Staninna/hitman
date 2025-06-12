@@ -202,11 +202,11 @@ function updateDeathScreen(killer) {
 
 function updateFinishedScreen(winner) {
     document.getElementById('gameViewTitle').textContent = "Game Over!";
-    const winnerInfo = document.getElementById('winnerInfo');
+    const winnerInfo = document.getElementById('winnerText');
     if (winner) {
-        winnerInfo.innerHTML = `<legend>Winner!</legend><p><strong>${winner.name}</strong> has won the game!</p>`;
+        winnerInfo.innerHTML = `<strong>${winner.name}</strong> has won the game!`;
     } else {
-        winnerInfo.innerHTML = `<legend>Winner!</legend><p>The game has finished!</p>`;
+        winnerInfo.innerHTML = `The game has finished!`;
     }
 }
 
@@ -258,7 +258,7 @@ async function eliminateTarget() {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to eliminate target');
+            throw new Error(error.error || 'Failed to eliminate target');
         }
         // Game state will update via SSE, and we can clear the input
         document.getElementById('assassinationCode').value = '';

@@ -15,13 +15,13 @@ use axum::{
 };
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
-pub struct KillQuery {
-    secret: Uuid,
+pub struct KillPayload {
+    secret_code: String,
 }
 
 pub async fn create_game(
@@ -130,18 +130,22 @@ pub async fn kill_handler(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Query(query): Query<KillQuery>,
+    Json(payload): Json<KillPayload>,
 ) -> Result<impl IntoResponse, AppError> {
     info!(
         "Received kill_handler for game {}: killer token: {}, secret: {}",
         game_code,
         auth.token(),
-        query.secret
+        payload.secret_code
     );
+
+    let secret = Uuid::parse_str(&payload.secret_code).map_err(|_| {
+        AppError::UnprocessableEntity("Invalid secret code format".to_string())
+    })?;
 
     let (killer_id, killer_name, eliminated_player_name, new_target_name) = state
         .db
-        .process_kill(&game_code, auth.token(), &query.secret)
+        .process_kill(&game_code, auth.token(), &secret)
         .await?;
 
     debug!(
