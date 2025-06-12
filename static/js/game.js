@@ -61,11 +61,16 @@ async function eliminateTarget() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             },
-            body: JSON.stringify({ assassination_code: code })
+            body: JSON.stringify({ secret_code: code })
         });
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to eliminate target');
+            let errorText = await response.text();
+            try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.message || 'Failed to eliminate target');
+            } catch (e) {
+                throw new Error(errorText || 'Failed to eliminate target');
+            }
         }
     } catch (error) {
         console.error('Error eliminating target:', error);

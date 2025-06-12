@@ -38,6 +38,13 @@ function connectToGameStream() {
     };
 }
 
+function showScreen(screenId) {
+    const screens = document.querySelectorAll('.screen');
+    screens.forEach(screen => {
+        screen.style.display = screen.id === screenId ? 'block' : 'none';
+    });
+}
+
 function updateGameState(game, players) {
     const me = players.find(p => p.id === playerId);
     if (!me) {
@@ -62,6 +69,7 @@ function updateGameState(game, players) {
         if (currentPath !== lobbyPath) {
             handleRedirect(lobbyPath);
         } else {
+            showScreen('gameLobby');
             updateLobby(game, players);
         }
     } else if (gameStatus === 'inprogress') {
@@ -70,6 +78,7 @@ function updateGameState(game, players) {
             if (currentPath !== gamePath) {
                 handleRedirect(gamePath);
             } else {
+                showScreen('gamePlaying');
                 updateGameScreen(game, players, me);
             }
         } else {
@@ -78,6 +87,7 @@ function updateGameState(game, players) {
                 handleRedirect(eliminatedPath);
             } else {
                 const killer = players.find(p => p.id === me.killed_by);
+                showScreen('deathScreen');
                 updateDeathScreen(killer);
             }
         }
@@ -87,6 +97,7 @@ function updateGameState(game, players) {
             handleRedirect(gameOverPath);
         } else {
             const winner = players.find(p => p.is_alive);
+            showScreen('gameFinished');
             updateFinishedScreen(winner);
         }
     }
