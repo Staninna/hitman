@@ -9,8 +9,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tera::{Context};
+use uuid::Uuid;
 use crate::{
-    models::{Game, Player},
+    models::{Game},
     state::AppState,
 };
 use axum::http::StatusCode;
@@ -18,7 +19,17 @@ use axum::http::StatusCode;
 #[derive(Serialize)]
 struct GameState {
     game: Game,
-    players: Vec<Player>,
+    players: Vec<PlayerSse>,
+}
+
+#[derive(Serialize, Clone)]
+struct PlayerSse {
+    id: i64,
+    name: String,
+    is_alive: bool,
+    target_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secret_code: Option<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +71,7 @@ impl Default for IndexContext {
 }
 
 // TODO: Only send events on connection and when the game state changes
+// TODO: auth token is needed otherwise the player can see the secret code of other players by changing player_id
 pub async fn sse_handler(
     Path(game_code): Path<String>,
     State(state): State<AppState>,
@@ -69,19 +81,33 @@ pub async fn sse_handler(
         loop {
             match state.db.get_game_state(&game_code).await {
                 Ok(Some((game, players))) => {
-                    let mut new_players = players.clone();
+                    let mut sse_players: Vec<PlayerSse> = players.iter().map(|p| PlayerSse {
+                        id: p.id,
+                        name: p.name.clone(),
+                        is_alive: p.is_alive,
+                        target_name: p.target_name.clone(),
+                        secret_code: None,
+                    }).collect();
 
                     if let Some(player_id) = params.player_id {
+                        // Set target name
                         if let Some(target_id) = players.iter().find(|p| p.id == player_id).and_then(|p| p.target_id) {
                             if let Some(target) = players.iter().find(|p| p.id == target_id) {
-                                if let Some(me) = new_players.iter_mut().find(|p| p.id == player_id) {
+                                if let Some(me) = sse_players.iter_mut().find(|p| p.id == player_id) {
                                     me.target_name = Some(target.name.clone());
                                 }
                             }
                         }
+
+                        // Set secret code only for the requesting player
+                        if let Some(me) = sse_players.iter_mut().find(|p| p.id == player_id) {
+                            if let Some(me_full) = players.iter().find(|p| p.id == player_id) {
+                                me.secret_code = Some(me_full.secret_code);
+                            }
+                        }
                     }
 
-                    let game_state = GameState { game, players: new_players };
+                    let game_state = GameState { game, players: sse_players };
                     let event = Event::default()
                         .data(serde_json::to_string(&game_state).unwrap());
                     yield Ok(event);

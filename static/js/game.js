@@ -166,6 +166,8 @@ function updateGameScreen(game, players, me) {
     document.getElementById('lobbyActions').style.display = 'none';
     document.getElementById('lobbyGameName').style.display = 'none';
 
+    document.getElementById('playerSecretCode').textContent = me.secret_code || '...';
+
     const targetInfo = document.getElementById('targetInfo');
     if (me.target_name) {
         targetInfo.innerHTML = `<legend>Your Target</legend><p>Your target is: <strong>${me.target_name}</strong></p>`;
@@ -238,19 +240,28 @@ async function startGame() {
 }
 
 async function eliminateTarget() {
+    const code = document.getElementById('assassinationCode').value;
+    if (!code) {
+        alert('Please enter your target\'s secret code.');
+        return;
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}/eliminate`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
-            }
+            },
+            body: JSON.stringify({ "secret_code": code })
         });
 
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Failed to eliminate target');
         }
-        // Game state will update via SSE
+        // Game state will update via SSE, and we can clear the input
+        document.getElementById('assassinationCode').value = '';
     } catch (error) {
         console.error('Error eliminating target:', error);
         alert(`Could not eliminate target: ${error.message}`);
