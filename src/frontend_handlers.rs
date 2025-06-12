@@ -68,8 +68,8 @@ impl Default for IndexContext {
     }
 }
 
-// TODO: Only send events on connection and when the game state changes
-// TODO: auth token is needed otherwise the player can see the secret code of other players by changing player_id
+// TODO: add a dashmap to store and refetch with game code so this handler is not queried the db every second 
+//       this refetch should only be set when a modification happens to the game updates we can remove last_state
 pub async fn sse_handler(
     Path(game_code): Path<String>,
     State(state): State<AppState>,
