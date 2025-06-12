@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Hitman Lobby{% endblock title %}
+
+{% block body_attributes %}{% endblock body_attributes %}
+
+{% block body %}
+<script id="server-context" type="application/json">{{ ctx | json_encode | safe }}</script>
+<div id="gameView">
+    <div class="window" style="margin: 32px; width: 500px">
+        <div class="title-bar">
+            <div id="gameViewTitle" class="title-bar-text">Hitman Lobby</div>
+             <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            <!-- Screen for the lobby -->
+            <div id="gameLobby" class="screen">
+                <h3 id="lobbyGameName" style="text-align: center;">Game Lobby</h3>
+                <fieldset id="rejoinLinkContainer">
+                    <legend>Your Personal Rejoin Link</legend>
+                    <p>Bookmark or save this link! If you get disconnected, you can use it to get back into the game.</p>
+                    <input id="rejoinLink" type="text" readonly style="width: 100%; margin-top: 5px;"/>
+                    <button id="copyRejoinLinkBtn" style="width: 100%; margin-top: 5px;">Copy Rejoin Link</button>
+                </fieldset>
+                <fieldset id="inviteContainer">
+                    <legend>Invite Other Players</legend>
+                    <p>Share the link or QR code below with other players to have them join your game.</p>
+                    <div style="display: flex; justify-content: space-evenly; align-items: center; padding-top: 10px;">
+                        <div style="text-align: center;">
+                            <label>Scan Code:</label>
+                            <div class="qr-container" style="background:white; padding:10px; border: 1px solid grey; margin-top: 5px;">
+                                <img id="qrCode" alt="QR Code" style="width: 110px; height: 110px;"/>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <label for="shareLink">Or Copy Link:</label>
+                            <input id="shareLink" type="text" readonly style="width: 220px; margin-top: 5px;"/>
+                            <button id="copyLinkBtn" style="width: 220px; margin-top: 5px;">Copy Link to Clipboard</button>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset id="playerListContainer" style="margin-top: 15px;">
+                    <legend>Players</legend>
+                    <ul id="playerList" class="tree-view"></ul>
+                </fieldset>
+                <section id="lobbyActions" class="field-row" style="justify-content: flex-end">
+                    <button>Leave</button>
+                    <button id="startGameBtn" style="display: none;">Start Game</button>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block scripts %}
+<script src="/static/js/common.js"></script>
+<script src="/static/js/lobby.js"></script>
+{% endblock scripts %} 

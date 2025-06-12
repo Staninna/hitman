@@ -191,6 +191,32 @@ pub async fn rejoin_page(
     State(state): State<AppState>,
     Path((game_code, auth_token)): Path<(String, String)>,
 ) -> impl IntoResponse {
+    if let Ok(Some(player)) = state.db.get_player_by_auth_token(&auth_token).await {
+        if let Ok(Some(game)) = state.db.get_game_by_id(player.game_id).await {
+            if game.code == game_code {
+                let url = match game.status.to_string().as_str() {
+                    "LOBBY" => format!("/game/{}/player/{}/lobby", game.code, auth_token),
+                    "IN_PROGRESS" => {
+                        if player.is_alive {
+                            format!("/game/{}/player/{}/game", game.code, auth_token)
+                        } else {
+                            format!("/game/{}/player/{}/eliminated", game.code, auth_token)
+                        }
+                    }
+                    "FINISHED" => format!("/game/{}/player/{}/game_over", game.code, auth_token),
+                    _ => "/".to_string(),
+                };
+                return axum::response::Redirect::to(&url).into_response();
+            }
+        }
+    }
+    axum::response::Redirect::to("/").into_response()
+}
+
+pub async fn lobby_page(
+    State(state): State<AppState>,
+    Path((game_code, auth_token)): Path<(String, String)>,
+) -> impl IntoResponse {
     let mut context = Context::new();
 
     let mut index_context = IndexContext {
@@ -203,7 +229,46 @@ pub async fn rejoin_page(
 
     if let Ok(Some(player)) = state.db.get_player_by_auth_token(&auth_token).await {
         if let Ok(Some(game)) = state.db.get_game_by_id(player.game_id).await {
-            // Check if the player belongs to the game in the URL
+            if game.code == game_code {
+                index_context.game_exists = Some(true);
+                index_context.player_id = Some(player.id);
+                index_context.player_name = Some(player.name);
+                index_context.rejoin_link =
+                    Some(format!("/game/{}/player/{}", game_code, auth_token));
+            } else {
+                index_context.game_exists = Some(false);
+            }
+        } else {
+            index_context.game_exists = Some(false);
+        }
+    } else {
+        index_context.game_exists = Some(false);
+    }
+
+    context.insert("ctx", &index_context);
+
+    match state.tera.render("lobby.html", &context) {
+        Ok(s) => Html(s).into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    }
+}
+
+pub async fn game_in_progress_page(
+    State(state): State<AppState>,
+    Path((game_code, auth_token)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let mut context = Context::new();
+
+    let mut index_context = IndexContext {
+        is_rejoin_page: true,
+        is_game_page: true,
+        game_code: Some(game_code.clone()),
+        auth_token: Some(auth_token.clone()),
+        ..Default::default()
+    };
+
+    if let Ok(Some(player)) = state.db.get_player_by_auth_token(&auth_token).await {
+        if let Ok(Some(game)) = state.db.get_game_by_id(player.game_id).await {
             if game.code == game_code {
                 index_context.game_exists = Some(true);
                 index_context.player_id = Some(player.id);
@@ -223,6 +288,86 @@ pub async fn rejoin_page(
     context.insert("ctx", &index_context);
 
     match state.tera.render("game.html", &context) {
+        Ok(s) => Html(s).into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    }
+}
+
+pub async fn eliminated_page(
+    State(state): State<AppState>,
+    Path((game_code, auth_token)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let mut context = Context::new();
+
+    let mut index_context = IndexContext {
+        is_rejoin_page: true,
+        is_game_page: true,
+        game_code: Some(game_code.clone()),
+        auth_token: Some(auth_token.clone()),
+        ..Default::default()
+    };
+
+    if let Ok(Some(player)) = state.db.get_player_by_auth_token(&auth_token).await {
+        if let Ok(Some(game)) = state.db.get_game_by_id(player.game_id).await {
+            if game.code == game_code {
+                index_context.game_exists = Some(true);
+                index_context.player_id = Some(player.id);
+                index_context.player_name = Some(player.name);
+                index_context.rejoin_link =
+                    Some(format!("/game/{}/player/{}", game_code, auth_token));
+            } else {
+                index_context.game_exists = Some(false);
+            }
+        } else {
+            index_context.game_exists = Some(false);
+        }
+    } else {
+        index_context.game_exists = Some(false);
+    }
+
+    context.insert("ctx", &index_context);
+
+    match state.tera.render("eliminated.html", &context) {
+        Ok(s) => Html(s).into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    }
+}
+
+pub async fn game_over_page(
+    State(state): State<AppState>,
+    Path((game_code, auth_token)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let mut context = Context::new();
+
+    let mut index_context = IndexContext {
+        is_rejoin_page: true,
+        is_game_page: true,
+        game_code: Some(game_code.clone()),
+        auth_token: Some(auth_token.clone()),
+        ..Default::default()
+    };
+
+    if let Ok(Some(player)) = state.db.get_player_by_auth_token(&auth_token).await {
+        if let Ok(Some(game)) = state.db.get_game_by_id(player.game_id).await {
+            if game.code == game_code {
+                index_context.game_exists = Some(true);
+                index_context.player_id = Some(player.id);
+                index_context.player_name = Some(player.name);
+                index_context.rejoin_link =
+                    Some(format!("/game/{}/player/{}", game_code, auth_token));
+            } else {
+                index_context.game_exists = Some(false);
+            }
+        } else {
+            index_context.game_exists = Some(false);
+        }
+    } else {
+        index_context.game_exists = Some(false);
+    }
+
+    context.insert("ctx", &index_context);
+
+    match state.tera.render("game_over.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }

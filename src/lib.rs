@@ -24,6 +24,22 @@ pub fn create_router(app_state: AppState) -> axum::Router {
             "/game/{game_code}/player/{auth_token}",
             get(frontend_handlers::rejoin_page),
         )
+        .route(
+            "/game/{game_code}/player/{auth_token}/lobby",
+            get(frontend_handlers::lobby_page),
+        )
+        .route(
+            "/game/{game_code}/player/{auth_token}/game",
+            get(frontend_handlers::game_in_progress_page),
+        )
+        .route(
+            "/game/{game_code}/player/{auth_token}/eliminated",
+            get(frontend_handlers::eliminated_page),
+        )
+        .route(
+            "/game/{game_code}/player/{auth_token}/game_over",
+            get(frontend_handlers::game_over_page),
+        )
         .route("/events/{game_code}", get(frontend_handlers::sse_handler))
         .nest_service("/static", ServeDir::new("static"))
         .route("/api/game", post(handlers::create_game))

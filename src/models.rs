@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use std::fmt::Display;
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "game_status", rename_all = "lowercase")]
@@ -7,6 +8,16 @@ pub enum GameStatus {
     Lobby,
     InProgress,
     Finished,
+}
+
+impl Display for GameStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GameStatus::Lobby => write!(f, "LOBBY"),
+            GameStatus::InProgress => write!(f, "IN_PROGRESS"),
+            GameStatus::Finished => write!(f, "FINISHED"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize, PartialEq)]

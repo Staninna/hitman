@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminated{% endblock title %}
+
+{% block body_attributes %}{% endblock body_attributes %}
+
+{% block body %}
+<script id="server-context" type="application/json">{{ ctx | json_encode | safe }}</script>
+<div id="gameView">
+    <div class="window" style="margin: 32px; width: 500px">
+        <div class="title-bar">
+            <div id="gameViewTitle" class="title-bar-text">Eliminated</div>
+             <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            <div id="deathScreen" class="screen">
+                <h3 style="text-align:center;">You've Been Eliminated!</h3>
+                <p>You can no longer participate, but you can spectate.</p>
+                <p id="killerInfo" style="text-align:center; font-weight: bold; margin-top: 10px;"></p>
+                <section class="field-row" style="justify-content: center; margin-top: 20px;">
+                    <button>Back to Main Menu</button>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block scripts %}
+<script src="/static/js/common.js"></script>
+<script src="/static/js/eliminated.js"></script>
+{% endblock scripts %} 
