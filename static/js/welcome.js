@@ -1,108 +1,67 @@
+import { showModal, hideModal, showToast } from './ui.js';
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Welcome page buttons
-    const createGameModalButton = document.querySelector('.window-body button:first-child');
-    if (createGameModalButton && createGameModalButton.textContent.includes('Create New Game')) {
-        createGameModalButton.addEventListener('click', () => showModal('createGameModal'));
+    const serverContextElement = document.getElementById('server-context');
+    let serverContext = {};
+    if (serverContextElement) {
+        serverContext = JSON.parse(serverContextElement.textContent);
     }
 
-    const joinGameModalButton = document.querySelector('.window-body button:nth-child(2)');
-    if (joinGameModalButton && joinGameModalButton.textContent.includes('Join Existing Game')) {
-        joinGameModalButton.addEventListener('click', () => showModal('joinGameModal'));
+    document.getElementById('createGameBtn').addEventListener('click', () => showModal('createGameModal'));
+    document.getElementById('joinGameBtn').addEventListener('click', () => showModal('joinGameModal'));
+
+    document.getElementById('createGameModalClose').addEventListener('click', () => hideModal('createGameModal'));
+    document.getElementById('createGameCancel').addEventListener('click', () => hideModal('createGameModal'));
+
+    document.getElementById('joinGameModalClose').addEventListener('click', () => hideModal('joinGameModal'));
+    document.getElementById('joinGameCancel').addEventListener('click', () => hideModal('joinGameModal'));
+
+    if (serverContext.is_game_page && serverContext.game_exists) {
+        document.getElementById('gameId').value = serverContext.game_code;
+        showModal('joinGameModal');
     }
 
-    // Create Game Modal
-    const createGameModal = document.getElementById('createGameModal');
-    if (createGameModal) {
-        createGameModal.addEventListener('click', (event) => {
-            // Only hide if clicking on the overlay itself
-            if (event.target.id === 'createGameModal') {
-                hideModal('createGameModal', event);
-            }
-        });
-        const cancelButton = createGameModal.querySelector('button');
-        cancelButton.addEventListener('click', () => hideModal('createGameModal'));
-
-        const createButton = createGameModal.querySelector('button:nth-child(2)');
-        createButton.addEventListener('click', createGame);
-    }
-
-    // Join Game Modal
-    const joinGameModal = document.getElementById('joinGameModal');
-    if (joinGameModal) {
-        joinGameModal.addEventListener('click', (event) => {
-             // Only hide if clicking on the overlay itself
-            if (event.target.id === 'joinGameModal') {
-                hideModal('joinGameModal', event);
-            }
-        });
-        const cancelButton = joinGameModal.querySelector('button');
-        cancelButton.addEventListener('click', () => hideModal('joinGameModal'));
-
-        const joinButton = joinGameModal.querySelector('button:nth-child(2)');
-        joinButton.addEventListener('click', joinGame);
-    }
-});
-
-async function createGame() {
-    const creatorName = document.getElementById('creatorName').value;
-    if (!creatorName) {
-        alert('Please enter your name.');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/game`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_name: creatorName })
-        });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to create game');
-        }
-
-        const { game_code, auth_token } = await response.json();
-        window.location.href = `/game/${game_code}/player/${auth_token}`;
-    } catch (error) {
-        console.error('Error creating game:', error);
-        alert(`Could not create game: ${error.message}`);
-    }
-}
-
-
-async function joinGame() {
-    const gameId = document.getElementById('gameId').value.trim();
-    const playerName = document.getElementById('playerName').value.trim();
-
-    if (!gameId || !playerName) {
-        alert('Please enter both a game ID and your name.');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/game/${gameId}/join`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_name: playerName })
-        });
-
-        if (response.status === 404) {
-            alert('Game not found.');
+    document.getElementById('createGameConfirm').addEventListener('click', async () => {
+        const creatorName = document.getElementById('creatorName').value;
+        if (!creatorName) {
+            showToast('Please enter your name.', 'error');
             return;
         }
-        if (response.status === 409) {
-            alert('A player with that name already exists in the game.');
+
+        try {
+            const response = await fetch('/api/game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_name: creatorName }),
+            });
+            if (!response.ok) throw new Error('Failed to create game');
+            const data = await response.json();
+            window.location.href = `/game/${data.game_code}/player/${data.auth_token}/lobby`;
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    document.getElementById('joinGameConfirm').addEventListener('click', async () => {
+        const gameId = document.getElementById('gameId').value;
+        const playerName = document.getElementById('playerName').value;
+
+        if (!gameId || !playerName) {
+            showToast('Please enter both game ID and your name.', 'error');
             return;
         }
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to join game');
-        }
 
-        const { game_code, auth_token } = await response.json();
-        window.location.href = `/game/${game_code}/player/${auth_token}`;
-    } catch (error) {
-        console.error('Error joining game:', error);
-        alert(`Could not join game: ${error.message}`);
-    }
-} 
+        try {
+            const response = await fetch(`/api/game/${gameId}/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_name: playerName }),
+            });
+            if (!response.ok) throw new Error('Failed to join game');
+            const data = await response.json();
+            window.location.href = `/game/${gameId}/player/${data.auth_token}/lobby`;
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+}); 

@@ -1,17 +1,23 @@
+import { gameState } from './state.js';
+import { leaveGame, startGame } from './api.js';
+import { initializePolling } from './common.js';
+import { registerUpdater } from './uimanager.js';
+import { copyToClipboard, showToast } from './ui.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const serverContextElement = document.getElementById('server-context');
-    if (!serverContextElement) {
-        return;
-    }
+    if (!serverContextElement) return;
 
     const serverContext = JSON.parse(serverContextElement.textContent);
 
     if (serverContext.game_code && serverContext.auth_token && serverContext.player_id) {
-        gameCode = serverContext.game_code;
-        playerId = serverContext.player_id;
-        authToken = serverContext.auth_token;
+        gameState.setGameDetails({
+            gameCode: serverContext.game_code,
+            playerId: serverContext.player_id,
+            authToken: serverContext.auth_token,
+        });
 
-        startPolling();
+        initializePolling();
     }
 
     const leaveButton = document.querySelector('#lobbyActions button:first-child');
@@ -19,33 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startButton = document.getElementById('startGameBtn');
     if (startButton) {
-        startButton.addEventListener('click', async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}/start`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to start game');
-                }
-
-                // Game started, should be handled by polling
-            } catch (error) {
-                alert(error.message);
-            }
-        });
+        startButton.addEventListener('click', () => startGameAndHandleErrors());
     }
     
     const closeButton = document.querySelector('.title-bar-controls button[aria-label="Close"]');
     if(closeButton) closeButton.addEventListener('click', leaveGame);
+
+    registerUpdater('lobby', updateLobbyUI);
 });
 
-function updateLobby(game, players) {
+function updateLobbyUI(game, players) {
+    const { playerId } = gameState.getGameDetails();
     document.getElementById('lobbyGameName').textContent = `Game Lobby: ${game.code}`;
 
     const shareLink = `${window.location.origin}/game/${game.code}`;
@@ -53,7 +43,7 @@ function updateLobby(game, players) {
     shareLinkInput.value = shareLink;
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(shareLink, 'Game link copied to clipboard!');
 
-    const rejoinLink = `${window.location.origin}/game/${gameCode}/player/${authToken}`;
+    const rejoinLink = `${window.location.origin}/game/${game.code}/player/${gameState.getGameDetails().authToken}`;
     const rejoinLinkInput = document.getElementById('rejoinLink');
     rejoinLinkInput.value = rejoinLink;
     document.getElementById('copyRejoinLinkBtn').onclick = () => copyToClipboard(rejoinLink, 'Rejoin link copied to clipboard!');
@@ -83,27 +73,10 @@ function updateLobby(game, players) {
     }
 }
 
-async function startGame() {
+async function startGameAndHandleErrors() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}/start`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ auth_token: authToken })
-        });
-        if (!response.ok) {
-            let errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                throw new Error(errorJson.message || 'Failed to start game');
-            } catch (e) {
-                throw new Error(errorText || 'Failed to start game');
-            }
-        }
+        await startGame();
     } catch (error) {
-        console.error('Error starting game:', error);
-        alert(`Could not start game: ${error.message}`);
+        showToast(error.message, 'error');
     }
 } 

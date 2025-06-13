@@ -3,6 +3,7 @@
 {% block title %}Hitman Game{% endblock title %}
 
 {% block body %}
+<script id="server-context" type="application/json">{{ ctx | json_encode | safe }}</script>
 <div class="center-container">
     <div class="window" style="width: 400px">
         <div class="title-bar">
@@ -12,8 +13,8 @@
             <h4>Welcome to Hitman!</h4>
             <p style="margin-bottom: 20px;">Create a new game to become the host, or join an existing game using a code from a friend.</p>
             <div class="field-row" style="justify-content: center;">
-                <button>Create New Game</button>
-                <button>Join Existing Game</button>
+                <button id="createGameBtn">Create New Game</button>
+                <button id="joinGameBtn">Join Existing Game</button>
             </div>
         </div>
     </div>
@@ -24,6 +25,9 @@
     <div class="window" style="width: 300px; margin: auto;">
         <div class="title-bar">
             <div class="title-bar-text">Create New Game</div>
+            <div class="title-bar-controls">
+                <button aria-label="Close" id="createGameModalClose"></button>
+            </div>
         </div>
         <div class="window-body">
             <fieldset>
@@ -34,8 +38,8 @@
                 </div>
             </fieldset>
             <section class="field-row" style="justify-content: flex-end">
-                <button>Cancel</button>
-                <button>Create</button>
+                <button id="createGameCancel">Cancel</button>
+                <button id="createGameConfirm">Create</button>
             </section>
         </div>
     </div>
@@ -45,6 +49,9 @@
     <div class="window" style="width: 300px; margin: auto;">
         <div class="title-bar">
             <div class="title-bar-text">Join Existing Game</div>
+            <div class="title-bar-controls">
+                <button aria-label="Close" id="joinGameModalClose"></button>
+            </div>
         </div>
         <div class="window-body">
             <fieldset>
@@ -59,8 +66,8 @@
                 </div>
             </fieldset>
              <section class="field-row" style="justify-content: flex-end">
-                <button>Cancel</button>
-                <button>Join</button>
+                <button id="joinGameCancel">Cancel</button>
+                <button id="joinGameConfirm">Join</button>
             </section>
         </div>
     </div>
@@ -68,5 +75,5 @@
 {% endblock body %}
 
 {% block scripts %}
-<script src="/static/js/welcome.js"></script>
+<script type="module" src="/static/js/welcome.js"></script>
 {% endblock scripts %} 

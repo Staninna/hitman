@@ -1,17 +1,23 @@
+import { gameState } from './state.js';
+import { leaveGame, eliminateTarget as eliminateTargetApi } from './api.js';
+import { initializePolling } from './common.js';
+import { registerUpdater } from './uimanager.js';
+import { showToast } from './ui.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const serverContextElement = document.getElementById('server-context');
-    if (!serverContextElement) {
-        return;
-    }
+    if (!serverContextElement) return;
 
     const serverContext = JSON.parse(serverContextElement.textContent);
 
     if (serverContext.game_code && serverContext.auth_token && serverContext.player_id) {
-        gameCode = serverContext.game_code;
-        playerId = serverContext.player_id;
-        authToken = serverContext.auth_token;
+        gameState.setGameDetails({
+            gameCode: serverContext.game_code,
+            playerId: serverContext.player_id,
+            authToken: serverContext.auth_token,
+        });
 
-        startPolling();
+        initializePolling();
     }
 
     const assassinateButton = document.querySelector('#gamePlaying button');
@@ -19,9 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const closeButton = document.querySelector('.title-bar-controls button[aria-label="Close"]');
     if(closeButton) closeButton.addEventListener('click', leaveGame);
+
+    registerUpdater('game', updateGameUI);
 });
 
-function updateGameScreen(game, players, me) {
+function updateGameUI(game, players, me) {
     document.getElementById('gameViewTitle').textContent = "Game in Progress";
 
     document.getElementById('playerSecretCode').textContent = me.secret_code || '...';
@@ -38,7 +46,7 @@ function updateGameScreen(game, players, me) {
     players.filter(p => p.is_alive).forEach(p => {
         const item = document.createElement('li');
         let text = p.name;
-        if (p.id === playerId) {
+        if (p.id === gameState.getGameDetails().playerId) {
             item.style.fontWeight = 'bold';
             text += ' (You)';
         }
@@ -50,30 +58,14 @@ function updateGameScreen(game, players, me) {
 async function eliminateTarget() {
     const code = document.getElementById('assassinationCode').value;
     if (!code) {
-        alert('Please enter your target\'s secret code.');
+        showToast('Please enter your target\'s secret code.', 'error');
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}/eliminate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ secret_code: code })
-        });
-        if (!response.ok) {
-            let errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                throw new Error(errorJson.message || 'Failed to eliminate target');
-            } catch (e) {
-                throw new Error(errorText || 'Failed to eliminate target');
-            }
-        }
+        await eliminateTargetApi(code);
     } catch (error) {
         console.error('Error eliminating target:', error);
-        alert(`Could not eliminate target: ${error.message}`);
+        showToast(`Could not eliminate target: ${error.message}`, 'error');
     }
 } 

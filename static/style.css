@@ -9,4 +9,35 @@ body, html {
     font-size: 16px;
 }
 
-/* Remove the redundant font-face definition and other styles if they are covered by xp.css */ 
+.screen {
+    display: none;
+}
+
+#gameView {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+}
+
+.toast {
+    width: 300px;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* Remove the redundant font-face definition and other styles if they are covered by xp.css */
