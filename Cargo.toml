@@ -24,7 +24,6 @@ uuid = { version = "1.17.0", features = ["v4", "serde"] }
 tera = "1"
 tokio-stream = "0.1"
 mime_guess = "2.0.5"
-async-stream = "0.3"
 socketioxide = "0.17.2"
 dashmap = "6.1.0"
 
