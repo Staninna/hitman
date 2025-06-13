@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playerId = serverContext.player_id;
         authToken = serverContext.auth_token;
 
-        connectToGameStream();
+        startPolling();
     }
 
     const leaveButton = document.querySelector('#lobbyActions button:first-child');

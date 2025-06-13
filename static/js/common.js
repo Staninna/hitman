@@ -14,7 +14,6 @@ function hideModal(modalId, event) {
 let gameCode = null;
 let playerId = null;
 let authToken = null;
-let lastUpdate = 0;
 let pollingInterval;
 
 async function pollForChanges() {
@@ -22,7 +21,7 @@ async function pollForChanges() {
 
     try {
         const response = await fetch(
-            `${API_BASE_URL}/api/game/${gameCode}/changed?since=${lastUpdate}`
+            `${API_BASE_URL}/api/game/${gameCode}/changed?player_id=${playerId}`
         );
         if (!response.ok) {
             console.error("Failed to poll for changes:", response.status);
@@ -34,7 +33,6 @@ async function pollForChanges() {
         }
 
         const data = await response.json();
-        lastUpdate = data.now;
 
         if (data.changed) {
             fetchGameState();

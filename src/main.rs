@@ -21,7 +21,7 @@ async fn main() {
     let app_state = AppState {
         db,
         tera,
-        changes: Default::default(),
+        changes: std::sync::Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_router(app_state).layer(

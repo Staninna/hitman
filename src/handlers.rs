@@ -16,19 +16,18 @@ use axum::{
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
+use dashmap::DashMap;
 use tracing::{debug, info};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct ChangedParams {
-    since: u64,
+    player_id: i64,
 }
 
 #[derive(Serialize)]
 pub struct ChangedResponse {
     changed: bool,
-    now: u64,
 }
 
 pub async fn check_for_changes(
@@ -36,26 +35,39 @@ pub async fn check_for_changes(
     Path(game_code): Path<String>,
     Query(params): Query<ChangedParams>,
 ) -> Result<impl IntoResponse, AppError> {
-    let since_time = UNIX_EPOCH + std::time::Duration::from_secs(params.since);
-    let entry = state.changes.get(&game_code);
+    let player_id = params.player_id;
 
-    let changed = if let Some(last_update) = entry {
-        *last_update > since_time
+    let mut changed = true;
+
+    if let Some(game_map) = state.changes.get(&game_code) {
+        if let Some(mut flag) = game_map.get_mut(&player_id) {
+            if *flag {
+                *flag = false;
+                changed = true;
+            } else {
+                changed = false;
+            }
+        } else {
+            game_map.insert(player_id, false);
+        }
     } else {
-        true
-    };
+        let player_map = DashMap::new();
+        player_map.insert(player_id, false);
+        state.changes.insert(game_code, player_map);
+    }
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    Ok(Json(ChangedResponse { changed, now }))
+    Ok(Json(ChangedResponse { changed }))
 }
 
 #[derive(Deserialize, Debug)]
 pub struct KillPayload {
     secret_code: String,
+}
+
+fn mark_all_players(game_changes: &DashMap<i64, bool>, players: &[crate::models::Player]) {
+    for p in players {
+        game_changes.insert(p.id, true);
+    }
 }
 
 pub async fn create_game(
@@ -91,9 +103,13 @@ pub async fn create_game(
         .await?
         .ok_or(AppError::InternalServerError)?;
 
-    state
-        .changes
-        .insert(game_code.clone(), std::time::SystemTime::now());
+    {
+        let game_changes = state
+            .changes
+            .entry(game_code.clone())
+            .or_insert_with(DashMap::new);
+        mark_all_players(&game_changes, &players);
+    }
 
     let response = GameCreatedPayload {
         game_code,
@@ -131,11 +147,15 @@ pub async fn join_game(
         .db
         .get_game_by_code(&game_code)
         .await?
-        .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
+        .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
-    state
-        .changes
-        .insert(game_code.clone(), std::time::SystemTime::now());
+    {
+        let game_changes = state
+            .changes
+            .entry(game_code.clone())
+            .or_insert_with(DashMap::new);
+        mark_all_players(&game_changes, &players);
+    }
 
     let response = GameJoinedPayload {
         game_code,
@@ -171,9 +191,13 @@ pub async fn start_game(
     info!("Game {} started with players: {:?}", game_code, players);
     debug!("Players after starting game {}: {:?}", game_code, players);
 
-    state
-        .changes
-        .insert(game_code, std::time::SystemTime::now());
+    {
+        let game_changes = state
+            .changes
+            .entry(game_code.clone())
+            .or_insert_with(DashMap::new);
+        mark_all_players(&game_changes, &players);
+    }
 
     Ok(Json(players))
 }
@@ -199,9 +223,17 @@ pub async fn kill_handler(
         .process_kill(&game_code, auth.token(), &secret)
         .await?;
 
-    state
-        .changes
-        .insert(game_code.clone(), std::time::SystemTime::now());
+    {
+        let game_changes = state
+            .changes
+            .entry(game_code.clone())
+            .or_insert_with(DashMap::new);
+        let game_opt = state.db.get_game_by_code(&game_code).await?;
+        if let Some(game) = game_opt {
+            let all_players = state.db.get_players_by_game_id(game.id).await?;
+            mark_all_players(&game_changes, &all_players);
+        }
+    }
 
     debug!(
         "Processed kill in game {}: killer_id: {}, killer_name: {}, eliminated_player_name: {}, new_target_name: {:?}",
@@ -233,7 +265,7 @@ pub async fn get_game_state(
         .db
         .get_game_by_code(&game_code)
         .await?
-        .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
+        .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
     let players = state.db.get_players_by_game_id(game.id).await?;
     debug!("Fetched players for game {}: {:?}", game_code, players);
@@ -252,9 +284,17 @@ pub async fn leave_game(
 
     state.db.leave_game(&game_code, &payload.auth_token).await?;
 
-    state
-        .changes
-        .insert(game_code, std::time::SystemTime::now());
+    {
+        let game_changes = state
+            .changes
+            .entry(game_code.clone())
+            .or_insert_with(DashMap::new);
+        let game_opt = state.db.get_game_by_code(&game_code).await?;
+        if let Some(game) = game_opt {
+            let all_players = state.db.get_players_by_game_id(game.id).await?;
+            mark_all_players(&game_changes, &all_players);
+        }
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
