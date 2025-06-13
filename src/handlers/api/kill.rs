@@ -28,7 +28,7 @@ pub async fn kill_handler(
     info!("kill_handler {}", game_code);
     let secret = Uuid::parse_str(&payload.secret_code)
         .map_err(|_| AppError::UnprocessableEntity("Invalid secret code format".into()))?;
-    let (killer_id, killer_name, eliminated, new_target) = state
+    let (_killer_id, killer_name, eliminated, new_target) = state
         .db
         .process_kill(&game_code, auth.token(), &secret)
         .await?;

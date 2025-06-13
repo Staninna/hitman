@@ -144,7 +144,7 @@ impl Db {
         }
 
         let mut ids: Vec<i64> = players.iter().map(|p| p.id).collect();
-        ids.shuffle(&mut rand::thread_rng());
+        ids.shuffle(&mut rand::rng());
 
         for (idx, &pid) in ids.iter().enumerate() {
             let target_id = ids[(idx + 1) % ids.len()];
