@@ -15,7 +15,6 @@ pub struct JoinGamePayload {
     pub player_name: String,
 }
 
-
 // --- Server-to-Client Payloads ---
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,7 +36,6 @@ pub struct GameJoinedPayload {
     pub players: Vec<Player>,
     pub game: Game,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KillResponsePayload {

@@ -1,7 +1,7 @@
 use crate::db::Db;
 use dashmap::DashMap;
-use tera::Tera;
 use std::sync::Arc;
+use tera::Tera;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,8 +19,12 @@ impl AppState {
             let player_map = game_ref.value();
             // loop through all the players in the game
             for player_ref in player_map.iter() {
-                println!("Game code: {}, Player ID: {}, Should refetch: {}", 
-                    game_code, player_ref.key(), player_ref.value());
+                println!(
+                    "Game code: {}, Player ID: {}, Should refetch: {}",
+                    game_code,
+                    player_ref.key(),
+                    player_ref.value()
+                );
             }
         }
     }
