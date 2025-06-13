@@ -211,9 +211,18 @@ pub async fn kill_handler(
 }
 
 #[derive(Serialize)]
+pub struct PlayerGameState {
+    pub id: i64,
+    pub name: String,
+    pub is_alive: bool,
+    pub target_name: Option<String>,
+    pub secret_code: Option<Uuid>,
+}
+
+#[derive(Serialize)]
 pub struct GameStateResponse {
-    game: crate::models::Game,
-    players: Vec<crate::models::Player>,
+    pub game: crate::models::Game,
+    pub players: Vec<PlayerGameState>,
 }
 
 pub async fn get_game_state(
@@ -223,9 +232,10 @@ pub async fn get_game_state(
 ) -> Result<impl IntoResponse, AppError> {
     info!("Received get_game_state for game {}", game_code);
 
-    if state.db.get_player_by_auth_token(auth.token()).await?.is_none() {
-        return Err(AppError::Forbidden("Invalid auth token.".to_string()));
-    }
+    let requesting_player = match state.db.get_player_by_auth_token(auth.token()).await? {
+        Some(p) => p,
+        None => return Err(AppError::Forbidden("Invalid auth token.".to_string())),
+    };
 
     let game = state
         .db
@@ -233,8 +243,24 @@ pub async fn get_game_state(
         .await?
         .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
-    let players = state.db.get_players_by_game_id(game.id).await?;
-    debug!("Fetched players for game {}: {:?}", game_code, players);
+    let players_db = state.db.get_players_by_game_id(game.id).await?;
+    debug!("Fetched players for game {}: {:?}", game_code, players_db);
+
+    let players: Vec<PlayerGameState> = players_db
+        .into_iter()
+        .map(|p| PlayerGameState {
+            id: p.id,
+            name: p.name,
+            is_alive: p.is_alive,
+            target_name: p.target_name,
+            secret_code: if p.id == requesting_player.id {
+                Some(p.secret_code)
+            } else {
+                None
+            },
+        })
+        .collect();
+
     Ok(Json(GameStateResponse { game, players }))
 }
 
