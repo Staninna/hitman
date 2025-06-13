@@ -17,8 +17,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const leaveButton = document.querySelector('#lobbyActions button:first-child');
     if(leaveButton) leaveButton.addEventListener('click', leaveGame);
 
-    const startGameButton = document.getElementById('startGameBtn');
-    if(startGameButton) startGameButton.addEventListener('click', startGame);
+    const startButton = document.getElementById('startGameBtn');
+    if (startButton) {
+        startButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to start game');
+                }
+
+                // Game started, should be handled by polling
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    }
     
     const closeButton = document.querySelector('.title-bar-controls button[aria-label="Close"]');
     if(closeButton) closeButton.addEventListener('click', leaveGame);

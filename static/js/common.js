@@ -21,7 +21,12 @@ async function pollForChanges() {
 
     try {
         const response = await fetch(
-            `${API_BASE_URL}/api/game/${gameCode}/changed?player_id=${playerId}`
+            `${API_BASE_URL}/api/game/${gameCode}/changed`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            }
         );
         if (!response.ok) {
             console.error("Failed to poll for changes:", response.status);
@@ -44,7 +49,11 @@ async function pollForChanges() {
 
 async function fetchGameState() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}`);
+        const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
         if (!response.ok) {
             console.error("Failed to fetch game state:", response.status);
             return;
@@ -61,7 +70,7 @@ function startPolling() {
     // Fetch initial state right away
     fetchGameState();
     // Then start polling for changes
-    pollingInterval = setInterval(pollForChanges, 2000); // Poll every 2 seconds
+    pollingInterval = setInterval(pollForChanges, 2000);
 }
 
 function stopPolling() {
@@ -136,8 +145,22 @@ function updateGameState(game, players) {
     }
 }
 
-function leaveGame() {
+async function leaveGame() {
     stopPolling();
+    if (gameCode && authToken) {
+        try {
+            await fetch(`${API_BASE_URL}/api/game/${gameCode}/leave`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+        } catch (error) {
+            console.error("Error leaving game:", error);
+        }
+    }
     window.location.href = '/';
 }
 

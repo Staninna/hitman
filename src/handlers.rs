@@ -1,11 +1,11 @@
 use crate::{
     errors::AppError, models::Player, payloads::{
         CreateGamePayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload,
-        KillResponsePayload, StartGamePayload,
+        KillResponsePayload,
     }, state::AppState, utils::generate_game_code
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -17,11 +17,6 @@ use dashmap::DashMap;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-#[derive(Deserialize)]
-pub struct ChangedParams {
-    player_id: i64,
-}
-
 #[derive(Serialize)]
 pub struct ChangedResponse {
     changed: bool,
@@ -30,12 +25,15 @@ pub struct ChangedResponse {
 pub async fn check_for_changes(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
-    Query(params): Query<ChangedParams>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let player_id = params.player_id;
+    let player = match state.db.get_player_by_auth_token(auth.token()).await? {
+        Some(player) => player,
+        None => return Err(AppError::Forbidden("Invalid auth token.".to_string())),
+    };
 
     let game_map = state.changes.entry(game_code).or_default();
-    let mut flag = game_map.entry(player_id).or_insert(true);
+    let mut flag = game_map.entry(player.id).or_insert(true);
 
     let changed = *flag;
     if changed {
@@ -44,6 +42,7 @@ pub async fn check_for_changes(
 
     Ok(Json(ChangedResponse { changed }))
 }
+
 fn mark_all_players(game_changes: &DashMap<String, DashMap<i64, bool>>, game_code: &str, players: &[Player]) {
     let player_marks = game_changes.entry(game_code.to_string()).or_default();
     for p in players {
@@ -146,13 +145,11 @@ pub async fn join_game(
 pub async fn start_game(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
-    Json(payload): Json<StartGamePayload>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("Received start_game for game {}: {:?}", game_code, payload);
+    info!("Received start_game for game {}", game_code);
 
-    let auth_token = payload.auth_token;
-
-    let player = match state.db.get_player_by_auth_token(&auth_token).await? {
+    let player = match state.db.get_player_by_auth_token(auth.token()).await? {
         Some(player) => {
             debug!("Player found for auth token: {:?}", player);
             player
@@ -222,8 +219,14 @@ pub struct GameStateResponse {
 pub async fn get_game_state(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Received get_game_state for game {}", game_code);
+
+    if state.db.get_player_by_auth_token(auth.token()).await?.is_none() {
+        return Err(AppError::Forbidden("Invalid auth token.".to_string()));
+    }
+
     let game = state
         .db
         .get_game_by_code(&game_code)
@@ -238,16 +241,16 @@ pub async fn get_game_state(
 pub async fn leave_game(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
-    Json(payload): Json<crate::payloads::LeaveGamePayload>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
     info!(
         "Received leave_game for game {}: auth_token: {}",
-        game_code, payload.auth_token
+        game_code, auth.token()
     );
 
     state
         .db
-        .leave_game(&game_code, &payload.auth_token)
+        .leave_game(&game_code, auth.token())
         .await?;
 
     if let Some(game) = state.db.get_game_by_code(&game_code).await? {
