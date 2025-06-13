@@ -1,11 +1,8 @@
 use crate::{
-    errors::AppError,
-    payloads::{
+    errors::AppError, models::Player, payloads::{
         CreateGamePayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload,
         KillResponsePayload, StartGamePayload,
-    },
-    state::AppState,
-    utils::generate_game_code,
+    }, state::AppState, utils::generate_game_code
 };
 use axum::{
     extract::{Path, Query, State},
@@ -37,37 +34,26 @@ pub async fn check_for_changes(
 ) -> Result<impl IntoResponse, AppError> {
     let player_id = params.player_id;
 
-    let mut changed = true;
+    let game_map = state.changes.entry(game_code).or_default();
+    let mut flag = game_map.entry(player_id).or_insert(true);
 
-    if let Some(game_map) = state.changes.get(&game_code) {
-        if let Some(mut flag) = game_map.get_mut(&player_id) {
-            if *flag {
-                *flag = false;
-                changed = true;
-            } else {
-                changed = false;
-            }
-        } else {
-            game_map.insert(player_id, false);
-        }
-    } else {
-        let player_map = DashMap::new();
-        player_map.insert(player_id, false);
-        state.changes.insert(game_code, player_map);
+    let changed = *flag;
+    if changed {
+        *flag = false;
     }
 
     Ok(Json(ChangedResponse { changed }))
+}
+fn mark_all_players(game_changes: &DashMap<String, DashMap<i64, bool>>, game_code: &str, players: &[Player]) {
+    let player_marks = game_changes.entry(game_code.to_string()).or_default();
+    for p in players {
+        player_marks.insert(p.id, true);
+    }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct KillPayload {
     secret_code: String,
-}
-
-fn mark_all_players(game_changes: &DashMap<i64, bool>, players: &[crate::models::Player]) {
-    for p in players {
-        game_changes.insert(p.id, true);
-    }
 }
 
 pub async fn create_game(
@@ -103,13 +89,7 @@ pub async fn create_game(
         .await?
         .ok_or(AppError::InternalServerError)?;
 
-    {
-        let game_changes = state
-            .changes
-            .entry(game_code.clone())
-            .or_insert_with(DashMap::new);
-        mark_all_players(&game_changes, &players);
-    }
+    mark_all_players(&state.changes, &game_code, &players);
 
     let response = GameCreatedPayload {
         game_code,
@@ -149,13 +129,7 @@ pub async fn join_game(
         .await?
         .ok_or(AppError::NotFound("Game not found".to_string()))?;
 
-    {
-        let game_changes = state
-            .changes
-            .entry(game_code.clone())
-            .or_insert_with(DashMap::new);
-        mark_all_players(&game_changes, &players);
-    }
+    mark_all_players(&state.changes, &game_code, &players);
 
     let response = GameJoinedPayload {
         game_code,
@@ -191,13 +165,7 @@ pub async fn start_game(
     info!("Game {} started with players: {:?}", game_code, players);
     debug!("Players after starting game {}: {:?}", game_code, players);
 
-    {
-        let game_changes = state
-            .changes
-            .entry(game_code.clone())
-            .or_insert_with(DashMap::new);
-        mark_all_players(&game_changes, &players);
-    }
+    mark_all_players(&state.changes, &game_code, &players);
 
     Ok(Json(players))
 }
@@ -224,14 +192,9 @@ pub async fn kill_handler(
         .await?;
 
     {
-        let game_changes = state
-            .changes
-            .entry(game_code.clone())
-            .or_insert_with(DashMap::new);
-        let game_opt = state.db.get_game_by_code(&game_code).await?;
-        if let Some(game) = game_opt {
+        if let Some(game) = state.db.get_game_by_code(&game_code).await? {
             let all_players = state.db.get_players_by_game_id(game.id).await?;
-            mark_all_players(&game_changes, &all_players);
+            mark_all_players(&state.changes, &game_code, &all_players);
         }
     }
 
@@ -282,18 +245,14 @@ pub async fn leave_game(
         game_code, payload.auth_token
     );
 
-    state.db.leave_game(&game_code, &payload.auth_token).await?;
+    state
+        .db
+        .leave_game(&game_code, &payload.auth_token)
+        .await?;
 
-    {
-        let game_changes = state
-            .changes
-            .entry(game_code.clone())
-            .or_insert_with(DashMap::new);
-        let game_opt = state.db.get_game_by_code(&game_code).await?;
-        if let Some(game) = game_opt {
-            let all_players = state.db.get_players_by_game_id(game.id).await?;
-            mark_all_players(&game_changes, &all_players);
-        }
+    if let Some(game) = state.db.get_game_by_code(&game_code).await? {
+        let all_players = state.db.get_players_by_game_id(game.id).await?;
+        mark_all_players(&state.changes, &game_code, &all_players);
     }
 
     Ok(StatusCode::NO_CONTENT)
