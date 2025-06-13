@@ -1,2 +1,3 @@
 - [ ] leave button in lobby needs to remove the entry for the player in the game
 - [ ] keep auth_token -> player.id in memory
+- [ ] rejoining should set the auth_token on the frontend
