@@ -707,8 +707,6 @@ impl Db {
         &self,
         game_code: &str,
     ) -> Result<Option<(Game, Vec<Player>)>, AppError> {
-        return Ok(None); // TODO: Remove this
-
         let game = self.get_game_by_code(game_code).await?;
         if game.is_none() {
             return Ok(None);
