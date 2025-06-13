@@ -11,31 +11,66 @@ function hideModal(modalId, event) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-let eventSource;
 let gameCode = null;
 let playerId = null;
 let authToken = null;
+let lastUpdate = 0;
+let pollingInterval;
 
-function connectToGameStream() {
-    if (eventSource) {
-        eventSource.close();
+async function pollForChanges() {
+    if (!gameCode) return;
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/game/${gameCode}/changed?since=${lastUpdate}`
+        );
+        if (!response.ok) {
+            console.error("Failed to poll for changes:", response.status);
+            if (response.status === 404) {
+                alert("The game session could not be found.");
+                leaveGame();
+            }
+            return;
+        }
+
+        const data = await response.json();
+        lastUpdate = data.now;
+
+        if (data.changed) {
+            fetchGameState();
+        }
+    } catch (error) {
+        console.error("Error polling for changes:", error);
     }
+}
 
-    let url = `${API_BASE_URL}/events/${gameCode}`;
-    if (playerId && authToken) {
-        url += `?player_id=${playerId}&auth_token=${authToken}`;
-    }
-
-    eventSource = new EventSource(url);
-    eventSource.onmessage = (event) => {
-        const { game, players } = JSON.parse(event.data);
+async function fetchGameState() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/game/${gameCode}`);
+        if (!response.ok) {
+            console.error("Failed to fetch game state:", response.status);
+            return;
+        }
+        const { game, players } = await response.json();
         updateGameState(game, players);
-    };
-    eventSource.onerror = (err) => {
-        console.error('EventSource failed:', err);
-        eventSource.close();
-        alert('Connection to the game has been lost.');
-    };
+    } catch (error) {
+        console.error("Error fetching game state:", error);
+    }
+}
+
+function startPolling() {
+    stopPolling();
+    // Fetch initial state right away
+    fetchGameState();
+    // Then start polling for changes
+    pollingInterval = setInterval(pollForChanges, 2000); // Poll every 2 seconds
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
 }
 
 function showScreen(screenId) {
@@ -104,9 +139,7 @@ function updateGameState(game, players) {
 }
 
 function leaveGame() {
-    if (eventSource) {
-        eventSource.close();
-    }
+    stopPolling();
     window.location.href = '/';
 }
 

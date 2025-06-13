@@ -41,6 +41,10 @@ pub fn create_router(app_state: AppState) -> axum::Router {
             get(frontend_handlers::game_over_page),
         )
         .route("/events/{game_code}", get(frontend_handlers::sse_handler))
+        .route(
+            "/api/game/{game_code}/changed",
+            get(handlers::check_for_changes),
+        )
         .nest_service("/static", ServeDir::new("static"))
         .route("/api/game", post(handlers::create_game))
         .route("/api/game/{game_code}", get(handlers::get_game_state))

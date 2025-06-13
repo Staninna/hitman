@@ -36,6 +36,7 @@ pub struct SseParams {
 }
 
 #[derive(Serialize)]
+#[derive(Default)]
 struct IndexContext {
     game_code: Option<String>,
     game_exists: Option<bool>,
@@ -50,23 +51,6 @@ struct IndexContext {
     rejoin_link: Option<String>,
 }
 
-impl Default for IndexContext {
-    fn default() -> Self {
-        Self {
-            game_code: None,
-            game_exists: None,
-            game_name: None,
-            player_count: None,
-            is_game_page: false,
-            show_join_modal: false,
-            is_rejoin_page: false,
-            auth_token: None,
-            player_id: None,
-            player_name: None,
-            rejoin_link: None,
-        }
-    }
-}
 
 // TODO: add a dashmap to store and refetch with game code so this handler is not queried the db every second
 //       this refetch should only be set when a modification happens to the game updates we can remove last_state

@@ -8,16 +8,50 @@ use crate::{
     utils::generate_game_code,
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info};
 use uuid::Uuid;
+
+#[derive(Deserialize)]
+pub struct ChangedParams {
+    since: u64,
+}
+
+#[derive(Serialize)]
+pub struct ChangedResponse {
+    changed: bool,
+    now: u64,
+}
+
+pub async fn check_for_changes(
+    State(state): State<AppState>,
+    Path(game_code): Path<String>,
+    Query(params): Query<ChangedParams>,
+) -> Result<impl IntoResponse, AppError> {
+    let since_time = UNIX_EPOCH + std::time::Duration::from_secs(params.since);
+    let entry = state.changes.get(&game_code);
+
+    let changed = if let Some(last_update) = entry {
+        *last_update > since_time
+    } else {
+        true
+    };
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    Ok(Json(ChangedResponse { changed, now }))
+}
 
 #[derive(Deserialize, Debug)]
 pub struct KillPayload {
@@ -55,7 +89,11 @@ pub async fn create_game(
         .db
         .get_game_by_code(&game_code)
         .await?
-        .ok_or_else(|| AppError::InternalServerError)?;
+        .ok_or(AppError::InternalServerError)?;
+
+    state
+        .changes
+        .insert(game_code.clone(), std::time::SystemTime::now());
 
     let response = GameCreatedPayload {
         game_code,
@@ -95,6 +133,10 @@ pub async fn join_game(
         .await?
         .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
 
+    state
+        .changes
+        .insert(game_code.clone(), std::time::SystemTime::now());
+
     let response = GameJoinedPayload {
         game_code,
         player_id,
@@ -129,6 +171,10 @@ pub async fn start_game(
     info!("Game {} started with players: {:?}", game_code, players);
     debug!("Players after starting game {}: {:?}", game_code, players);
 
+    state
+        .changes
+        .insert(game_code, std::time::SystemTime::now());
+
     Ok(Json(players))
 }
 
@@ -153,6 +199,10 @@ pub async fn kill_handler(
         .process_kill(&game_code, auth.token(), &secret)
         .await?;
 
+    state
+        .changes
+        .insert(game_code.clone(), std::time::SystemTime::now());
+
     debug!(
         "Processed kill in game {}: killer_id: {}, killer_name: {}, eliminated_player_name: {}, new_target_name: {:?}",
         game_code, killer_id, killer_name, eliminated_player_name, new_target_name
@@ -168,20 +218,26 @@ pub async fn kill_handler(
     Ok((StatusCode::OK, Json(response)))
 }
 
+#[derive(Serialize)]
+pub struct GameStateResponse {
+    game: crate::models::Game,
+    players: Vec<crate::models::Player>,
+}
+
 pub async fn get_game_state(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Received get_game_state for game {}", game_code);
-    let game = state.db.get_game_by_code(&game_code).await?;
-    debug!("Fetched game for game {}: {:?}", game_code, game);
-    if game.is_none() {
-        return Err(AppError::NotFound("Game not found".to_string()));
-    }
+    let game = state
+        .db
+        .get_game_by_code(&game_code)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Game not found".to_string()))?;
 
-    let players = state.db.get_players_by_game_id(game.unwrap().id).await?;
+    let players = state.db.get_players_by_game_id(game.id).await?;
     debug!("Fetched players for game {}: {:?}", game_code, players);
-    Ok(Json(players))
+    Ok(Json(GameStateResponse { game, players }))
 }
 
 pub async fn leave_game(
@@ -195,6 +251,10 @@ pub async fn leave_game(
     );
 
     state.db.leave_game(&game_code, &payload.auth_token).await?;
+
+    state
+        .changes
+        .insert(game_code, std::time::SystemTime::now());
 
     Ok(StatusCode::NO_CONTENT)
 }

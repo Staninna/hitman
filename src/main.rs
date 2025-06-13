@@ -18,7 +18,11 @@ async fn main() {
     let db = Db::new().await.expect("Failed to create database pool");
     let tera = Tera::new("templates/**/*").expect("Failed to create Tera instance");
 
-    let app_state = AppState { db, tera };
+    let app_state = AppState {
+        db,
+        tera,
+        changes: Default::default(),
+    };
 
     let app = create_router(app_state).layer(
         CorsLayer::new()
