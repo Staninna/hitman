@@ -2,7 +2,9 @@ use crate::state::AppState;
 use axum::http::StatusCode;
 use axum::{
     extract::{Path, State},
-    response::{Html, IntoResponse},
+    response::{
+        Html, IntoResponse,
+    },
 };
 use serde::Serialize;
 use tera::Context;
