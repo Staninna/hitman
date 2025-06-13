@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.8.4", features = ["macros"] }
 axum-extra = { version = "0.10.1", features = ["typed-header"] }
-axum-macros = "0.4.1"
 dotenvy = "0.15.7"
 rand = "0.9.1"
 serde = { version = "1", features = ["derive"] }
@@ -16,16 +15,12 @@ serde_json = "1"
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "sqlite", "macros", "uuid", "chrono", "json"] }
 thiserror = "2.0.12"
 tokio = { version = "1", features = ["full"] }
-tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["cors", "fs"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
 tera = "1"
 tokio-stream = "0.1"
-mime_guess = "2.0.5"
 async-stream = "0.3"
 
 [dev-dependencies]
-reqwest = { version = "0.12.5", features = ["json"] }
-serde_json = "1.0"
