@@ -40,7 +40,6 @@ pub fn create_router(app_state: AppState) -> axum::Router {
             "/game/{game_code}/player/{auth_token}/game_over",
             get(frontend_handlers::game_over_page),
         )
-        .route("/events/{game_code}", get(frontend_handlers::sse_handler))
         .route(
             "/api/game/{game_code}/changed",
             get(handlers::check_for_changes),

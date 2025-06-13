@@ -1,39 +1,11 @@
-use crate::{models::Game, state::AppState};
+use crate::state::AppState;
 use axum::http::StatusCode;
 use axum::{
-    extract::{Path, Query, State},
-    response::{
-        sse::{Event, Sse},
-        Html, IntoResponse,
-    },
+    extract::{Path, State},
+    response::{Html, IntoResponse},
 };
-use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
-use std::time::Duration;
+use serde::Serialize;
 use tera::Context;
-use uuid::Uuid;
-
-#[derive(Serialize)]
-struct GameState {
-    game: Game,
-    players: Vec<PlayerSse>,
-}
-
-#[derive(Serialize, Clone)]
-struct PlayerSse {
-    id: i64,
-    name: String,
-    is_alive: bool,
-    target_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    secret_code: Option<Uuid>,
-}
-
-#[derive(Deserialize)]
-pub struct SseParams {
-    player_id: Option<i64>,
-    auth_token: Option<String>,
-}
 
 #[derive(Serialize)]
 #[derive(Default)]
@@ -51,66 +23,6 @@ struct IndexContext {
     rejoin_link: Option<String>,
 }
 
-
-// TODO: add a dashmap to store and refetch with game code so this handler is not queried the db every second
-//       this refetch should only be set when a modification happens to the game updates we can remove last_state
-//       TRIED THIS SHIT FOR HOURS AND IT DIDNT WORK SO I GIVE UP IT TECHNICALLY WORKED BUT MY SSE STREAMS WERE UNRELIABLE
-pub async fn sse_handler(
-    Path(game_code): Path<String>,
-    State(state): State<AppState>,
-    Query(params): Query<SseParams>,
-) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
-    let mut last_state = String::new();
-
-    let stream = async_stream::stream! {
-        loop {
-            match state.db.get_game_state(&game_code).await {
-                Ok(Some((game, players))) => {
-                    let mut sse_players: Vec<PlayerSse> = players.iter().map(|p| PlayerSse {
-                        id: p.id,
-                        name: p.name.clone(),
-                        is_alive: p.is_alive,
-                        target_name: None,
-                        secret_code: None,
-                    }).collect();
-
-                    if let (Some(player_id), Some(auth_token)) = (params.player_id, params.auth_token.as_ref()) {
-                        if let Some(me_full) = players.iter().find(|p| p.id == player_id) {
-                            if me_full.auth_token == *auth_token {
-                                if let Some(me_sse) = sse_players.iter_mut().find(|p| p.id == player_id) {
-                                    me_sse.target_name = me_full.target_name.clone();
-                                    me_sse.secret_code = Some(me_full.secret_code);
-                                }
-                            }
-                        }
-                    }
-
-                    let game_state = GameState { game, players: sse_players };
-                    if let Ok(current_state) = serde_json::to_string(&game_state) {
-                        if last_state != current_state {
-                            let event = Event::default().data(current_state.clone());
-                            yield Ok(event);
-                            last_state = current_state;
-                        }
-                    }
-                }
-                Ok(None) => {
-                    let event = Event::default().event("error").data("Game not found");
-                    yield Ok(event);
-                    break;
-                }
-                Err(_) => {
-                    let event = Event::default().event("error").data("Database error");
-                    yield Ok(event);
-                    break;
-                }
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    };
-
-    Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::new())
-}
 
 pub async fn index(State(state): State<AppState>) -> impl IntoResponse {
     let mut context = Context::new();
