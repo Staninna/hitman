@@ -1,7 +1,5 @@
 # important
 
-- [ ] toast css is fucked up
-
 # later
 
 - [ ] add private mode s players cant see who is still alive
@@ -9,3 +7,4 @@
 - [ ] locale in errors and frontend
 - [ ] 'skeleton' of the webside so it does't 'flash' when getting hydrated flash == small to big
 - [ ] welcome page should have more info on the game
+- [ ] ui should be updated
