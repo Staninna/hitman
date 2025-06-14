@@ -1,1 +1,4 @@
 - [ ] add private mode s players cant see who is still alive
+- [ ] lowercase game codes
+- [ ] locale in errors and frontend
+- [ ] 'skeleton' of the webside so it does't 'flash' when getting hydrated flash == small to big
