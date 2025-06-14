@@ -1,2 +1,1 @@
 - [ ] leave button in lobby needs to remove the entry for the player in the game
-- [ ] better caching aka state.changes cuz if a player has the app on 2 browsers 1 would get out of sync cuz the changes are only comunicated once per player
