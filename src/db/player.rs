@@ -92,7 +92,7 @@ impl Db {
         .fetch_optional(&self.0)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to get player by name: {}", e);
+            tracing::warn!(game_id, player_name, "Failed to get player by name: {}", e);
             AppError::InternalServerError
         })?;
         debug!("Found player: {:?}", player);
@@ -105,7 +105,7 @@ impl Db {
             auth_token, game_code
         );
         let mut tx = self.0.begin().await.map_err(|e| {
-            tracing::error!("Failed to begin transaction: {}", e);
+            tracing::warn!(game_code, auth_token, "Failed to begin transaction: {}", e);
             AppError::InternalServerError
         })?;
 
@@ -158,7 +158,12 @@ impl Db {
         .fetch_optional(&mut **tx)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to query for killer: {}", e);
+            tracing::warn!(
+                killer_token,
+                game_id,
+                "Failed to query for killer by auth token: {}",
+                e
+            );
             AppError::InternalServerError
         })?
         .ok_or(AppError::Unauthorized)
@@ -191,7 +196,12 @@ impl Db {
         .fetch_optional(&mut **tx)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to query for target: {}", e);
+            tracing::warn!(
+                target_secret = target_secret.to_string(),
+                game_id,
+                "Failed to query for target by secret: {}",
+                e
+            );
             AppError::InternalServerError
         })?
         .ok_or(AppError::NotFound(

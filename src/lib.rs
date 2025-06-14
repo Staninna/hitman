@@ -3,6 +3,8 @@ use axum::{
     Router,
 };
 use tower_http::services::ServeDir;
+use tower_http::trace::TraceLayer;
+use uuid::Uuid;
 
 pub mod db;
 pub mod errors;
@@ -52,4 +54,16 @@ pub fn create_router(app_state: AppState) -> axum::Router {
         .route("/api/game/{game_code}/eliminate", post(api::kill_handler))
         .route("/api/game/{game_code}/leave", post(api::leave_game))
         .with_state(app_state)
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
+                let request_id = Uuid::new_v4();
+                tracing::info_span!(
+                    "request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    version = ?request.version(),
+                    request_id = %request_id,
+                )
+            }),
+        )
 }

@@ -29,7 +29,10 @@ impl IntoResponse for AppError {
             AppError::UnprocessableEntity(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg),
         };
 
-        tracing::error!("Sending error response: {} - {}", status, error_message);
+        match status.is_server_error() {
+            true => tracing::error!(status = %status, "Sending error response: {}", error_message),
+            false => tracing::info!(status = %status, "Sending error response: {}", error_message),
+        }
 
         let body = Json(json!({
             "error": error_message,
@@ -41,7 +44,7 @@ impl IntoResponse for AppError {
 
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
-        tracing::error!("SQLx error: {:?}", err);
+        tracing::error!(error = ?err, "SQLx error");
         AppError::InternalServerError
     }
 }

@@ -106,7 +106,7 @@ impl Db {
                     return AppError::UnprocessableEntity("Player name already taken".to_string());
                 }
             }
-            tracing::error!("Failed to insert player: {}", e);
+            tracing::warn!(game_id = game.id, player_name, "Failed to insert player: {}", e);
             AppError::InternalServerError
         })?
         .last_insert_rowid();
