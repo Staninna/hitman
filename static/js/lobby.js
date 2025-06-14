@@ -48,9 +48,16 @@ function updateLobbyUI(game, players) {
     rejoinLinkInput.value = rejoinLink;
     document.getElementById('copyRejoinLinkBtn').onclick = () => copyToClipboard(rejoinLink, 'Rejoin link copied to clipboard!');
 
-    const qrCodeImg = document.getElementById('qrCode');
-    if (qrCodeImg) {
-        qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareLink)}`;
+    const qrContainer = document.getElementById('qrCode');
+    if (qrContainer && (!qrContainer.dataset.link || qrContainer.dataset.link !== shareLink)) {
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: shareLink,
+            width: 110,
+            height: 110,
+            correctLevel: QRCode.CorrectLevel.H,
+        });
+        qrContainer.dataset.link = shareLink;
     }
     
     const playerList = document.getElementById('playerList');
