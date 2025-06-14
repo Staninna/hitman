@@ -73,7 +73,7 @@ impl Db {
         let game = self.get_game_by_code_in_tx(&mut tx, &game_code).await?;
         if game.status != GameStatus::Lobby {
             return Err(AppError::UnprocessableEntity(
-                "You can not join games that aren't in lobby".to_string(),
+                "This game has already started or finished, so new players can no longer join.".to_string(),
             ));
         }
 
@@ -82,12 +82,12 @@ impl Db {
             if p.is_alive {
                 // A living player with this name is already in the lobby – reject the join attempt.
                 return Err(AppError::UnprocessableEntity(
-                    "Player name already taken".to_string(),
+                    "That name is already being used by another player in this lobby. Please choose a different name.".to_string(),
                 ));
             } else {
                 // The player existed previously but has been eliminated – they cannot re-join.
                 return Err(AppError::Forbidden(
-                    "You have been eliminated from this game.".to_string(),
+                    "You were eliminated earlier in this game and cannot rejoin.".to_string(),
                 ));
             }
         }
@@ -108,7 +108,7 @@ impl Db {
         .map_err(|e| {
             if let Some(db_err) = e.as_database_error() {
                 if db_err.is_unique_violation() {
-                    return AppError::UnprocessableEntity("Player name already taken".to_string());
+                    return AppError::UnprocessableEntity("That name is already being used by another player in this lobby. Please choose a different name.".to_string());
                 }
             }
             tracing::warn!(
@@ -143,14 +143,14 @@ impl Db {
         let game = self.get_game_by_code_in_tx(&mut tx, game_code).await?;
         if game.host_id != Some(player_id) {
             return Err(AppError::Forbidden(
-                "Only the host can start the game.".to_string(),
+                "Only the host (the person who created the game) can start it.".to_string(),
             ));
         }
 
         let players = self.get_players_by_game_id(game.id).await?;
         if players.len() < 2 {
             return Err(AppError::UnprocessableEntity(
-                "At least 2 players required to start the game".to_string(),
+                "You need at least 2 players in the lobby to start the game. Invite someone else to join first!".to_string(),
             ));
         }
 

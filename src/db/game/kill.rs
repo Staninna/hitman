@@ -41,30 +41,30 @@ impl Db {
     fn validate_kill(killer: &Player, target: &Player, game: &Game) -> Result<(), AppError> {
         if !killer.is_alive {
             return Err(AppError::Forbidden(
-                "A dead player cannot perform a kill.".into(),
+                "You have already been eliminated and cannot eliminate anyone.".into(),
             ));
         }
         if !target.is_alive {
-            return Err(AppError::Forbidden("The target is already dead.".into()));
+            return Err(AppError::Forbidden(
+                "That player has already been eliminated by someone else.".into(),
+            ));
         }
         if killer.game_id != target.game_id {
             return Err(AppError::Forbidden(
-                "Killer and target are not in the same game.".into(),
+                "You are not in the same game as that player.".into(),
             ));
         }
         if killer.id == target.id {
-            return Err(AppError::Forbidden(
-                "A player cannot kill themselves.".into(),
-            ));
+            return Err(AppError::Forbidden("You cannot eliminate yourself.".into()));
         }
         if game.status != GameStatus::InProgress {
             return Err(AppError::UnprocessableEntity(
-                "Game is not in progress.".into(),
+                "The game hasn't started yet or has already finished.".into(),
             ));
         }
         if killer.target_id != Some(target.id) {
             return Err(AppError::Forbidden(
-                "The identified target is not the killer's current target.".into(),
+                "That code does not match your current target. Double-check the secret code given to your target.".into(),
             ));
         }
         Ok(())

@@ -1,20 +1,44 @@
 import { gameState } from './state.js';
 import { updateGameState } from './uimanager.js';
+import { showToast } from './ui.js';
 
 const API_BASE_URL = `${window.location.protocol}//${window.location.host}`;
 
-async function fetchApi(url, options = {}) {
+// A small wrapper around fetch that automatically adds auth headers (if present)
+// and converts backend error payloads into thrown Error instances with a readable
+// message. Whenever an error response is detected a toast notification is shown
+// so that the UI immediately communicates the problem to the user.
+export async function fetchApi(url, options = {}) {
     const { authToken } = gameState.getGameDetails();
+
     const headers = {
-        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json',
         ...options.headers,
     };
 
+    // Only attach the Authorization header if we actually have a token –
+    // sending an empty/undefined token could cause the backend to reject the request.
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const response = await fetch(url, { ...options, headers });
 
     if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+        let message = `API request failed with status ${response.status}`;
+        // Attempt to read the backend error payload (expected format: { error: "..." })
+        try {
+            const data = await response.clone().json();
+            if (data && data.error) {
+                message = data.error;
+            }
+        } catch (_) {
+            // Response either wasn't JSON or parsing failed – ignore and fall back to default message
+        }
+
+        // Surface the error to the UI so the player gets immediate feedback.
+        showToast(message, 'error');
+        throw new Error(message);
     }
 
     return response.json();
@@ -37,7 +61,6 @@ export async function pollForChanges() {
     } catch (error) {
         console.error("Error polling for changes:", error);
         if (error.message && error.message.includes('404')) {
-            alert("The game session could not be found.");
             leaveGame();
         }
     }

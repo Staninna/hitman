@@ -68,6 +68,13 @@ function updateLobbyUI(game, players) {
     const startGameBtn = document.getElementById('startGameBtn');
     if (me && me.id === game.host_id) {
         startGameBtn.style.display = 'block';
+        if (players.length < 2) {
+            startGameBtn.disabled = true;
+            startGameBtn.title = 'Need at least 2 players to start the game';
+        } else {
+            startGameBtn.disabled = false;
+            startGameBtn.title = '';
+        }
     } else {
         startGameBtn.style.display = 'none';
     }

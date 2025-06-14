@@ -1,4 +1,5 @@
 import { showModal, hideModal, showToast } from './ui.js';
+import { fetchApi } from './api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const serverContextElement = document.getElementById('server-context');
@@ -29,13 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/game', {
+            const data = await fetchApi('/api/game', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ player_name: creatorName }),
             });
-            if (!response.ok) throw new Error('Failed to create game');
-            const data = await response.json();
             window.location.href = `/game/${data.game_code}/player/${data.auth_token}/lobby`;
         } catch (error) {
             showToast(error.message, 'error');
@@ -52,13 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`/api/game/${gameId}/join`, {
+            const data = await fetchApi(`/api/game/${gameId}/join`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ player_name: playerName }),
             });
-            if (!response.ok) throw new Error('Failed to join game');
-            const data = await response.json();
             window.location.href = `/game/${gameId}/player/${data.auth_token}/lobby`;
         } catch (error) {
             showToast(error.message, 'error');
