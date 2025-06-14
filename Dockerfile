@@ -22,6 +22,9 @@ COPY templates ./templates
 COPY static ./static
 COPY .sqlx ./.sqlx
 
+# We need to set this to true to avoid the sqlx-cli trying to connect to the database.
+ENV SQLX_OFFLINE=true
+
 # Build the actual application.
 # We remove the dummy binary first to ensure a clean build of our app.
 RUN rm -f target/release/deps/hitman* && cargo build --release
