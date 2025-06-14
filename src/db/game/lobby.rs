@@ -137,9 +137,9 @@ impl Db {
         }
 
         let players = self.get_players_by_game_id(game.id).await?;
-        if players.len() < 3 {
+        if players.len() < 2 {
             return Err(AppError::UnprocessableEntity(
-                "At least 3 players required to start the game".to_string(),
+                "At least 2 players required to start the game".to_string(),
             ));
         }
 
