@@ -66,6 +66,6 @@ async function eliminateTarget() {
         await eliminateTargetApi(code);
     } catch (error) {
         console.error('Error eliminating target:', error);
-        showToast(`Could not eliminate target: ${error.message}`, 'error');
+        showToast(error.message, 'error');
     }
 } 

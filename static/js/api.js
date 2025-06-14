@@ -4,10 +4,17 @@ import { showToast } from './ui.js';
 
 const API_BASE_URL = `${window.location.protocol}//${window.location.host}`;
 
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
 // A small wrapper around fetch that automatically adds auth headers (if present)
 // and converts backend error payloads into thrown Error instances with a readable
-// message. Whenever an error response is detected a toast notification is shown
-// so that the UI immediately communicates the problem to the user.
+// message.
 export async function fetchApi(url, options = {}) {
     const { authToken } = gameState.getGameDetails();
 
@@ -35,14 +42,13 @@ export async function fetchApi(url, options = {}) {
         } catch (_) {
             // Response either wasn't JSON or parsing failed – ignore and fall back to default message
         }
-
-        // Surface the error to the UI so the player gets immediate feedback.
-        showToast(message, 'error');
-        throw new Error(message);
+        throw new ApiError(message, response.status);
     }
 
     return response.json();
 }
+
+let pollingErrorHasBeenShown = false;
 
 export async function pollForChanges() {
     const { gameCode } = gameState.getGameDetails();
@@ -58,10 +64,18 @@ export async function pollForChanges() {
         if (data.changed) {
             await fetchGameState();
         }
+        if (pollingErrorHasBeenShown) {
+            showToast("Reconnected to server.", 'info');
+        }
+        pollingErrorHasBeenShown = false;
     } catch (error) {
         console.error("Error polling for changes:", error);
-        if (error.message && error.message.includes('404')) {
-            leaveGame();
+        if (error.status === 404) {
+            showToast("This game session no longer exists. Returning to the home page.", 'error');
+            setTimeout(() => leaveGame(), 3000);
+        } else if (!pollingErrorHasBeenShown) {
+            showToast(`Connection issue: ${error.message}. Will keep trying.`, 'error');
+            pollingErrorHasBeenShown = true;
         }
     }
 }
@@ -76,6 +90,7 @@ export async function fetchGameState() {
         updateGameState(game, players);
     } catch (error) {
         console.error("Error fetching game state:", error);
+        showToast(`Failed to update game state: ${error.message}`, 'error');
     }
 }
 
@@ -96,26 +111,16 @@ export async function leaveGame() {
 
 export async function startGame() {
     const { gameCode, authToken } = gameState.getGameDetails();
-    try {
-        await fetchApi(`${API_BASE_URL}/api/game/${gameCode}/start`, {
-            method: 'POST',
-            body: JSON.stringify({ auth_token: authToken }),
-        });
-    } catch (error) {
-        console.error("Error starting game:", error);
-        throw new Error('Failed to start game');
-    }
+    return fetchApi(`${API_BASE_URL}/api/game/${gameCode}/start`, {
+        method: 'POST',
+        body: JSON.stringify({ auth_token: authToken }),
+    });
 }
 
 export async function eliminateTarget(secretCode) {
     const { gameCode, authToken } = gameState.getGameDetails();
-    try {
-        await fetchApi(`${API_BASE_URL}/api/game/${gameCode}/eliminate`, {
-            method: 'POST',
-            body: JSON.stringify({ secret_code: secretCode }),
-        });
-    } catch (error) {
-        console.error("Error eliminating target:", error);
-        throw new Error('Failed to eliminate target');
-    }
+    return fetchApi(`${API_BASE_URL}/api/game/${gameCode}/eliminate`, {
+        method: 'POST',
+        body: JSON.stringify({ secret_code: secretCode }),
+    });
 } 
