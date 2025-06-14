@@ -20,6 +20,7 @@ services:
 
   app:
     build: .
+    restart: unless-stopped
     ports:
       - "42070:3000"
     environment:
