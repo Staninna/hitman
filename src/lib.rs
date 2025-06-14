@@ -5,6 +5,7 @@ use axum::{
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
+use std::env;
 
 pub mod db;
 pub mod errors;
@@ -20,6 +21,9 @@ use state::AppState;
 
 pub fn create_router(app_state: AppState) -> axum::Router {
     tracing::info!("Creating router");
+    let mut static_path = dotenvy::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    static_path.push_str("/static");
+
     Router::new()
         // Frontend
         .route("/", get(fh::index))
@@ -46,7 +50,7 @@ pub fn create_router(app_state: AppState) -> axum::Router {
         )
         // API
         .route("/api/game/{game_code}/changed", get(api::check_for_changes))
-        .nest_service("/static", ServeDir::new("static"))
+        .nest_service("/static", ServeDir::new(static_path))
         .route("/api/game", post(api::create_game))
         .route("/api/game/{game_code}", get(api::get_game_state))
         .route("/api/game/{game_code}/join", post(api::join_game))
