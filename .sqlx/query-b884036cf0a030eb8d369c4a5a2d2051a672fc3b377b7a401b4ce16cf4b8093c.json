@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id as \"id!\",\n                name,\n                secret_code,\n                auth_token,\n                is_alive,\n                target_id,\n                game_id,\n                NULL as \"target_name: _\"\n            FROM players\n            WHERE auth_token = $1 AND game_id = $2\n            ",
+  "query": "\n            SELECT\n                p.id as \"id!\",\n                p.name,\n                p.secret_code,\n                p.auth_token,\n                p.is_alive,\n                p.target_id,\n                p.game_id,\n                COALESCE(t.name, '') as \"target_name: _\"\n            FROM players p\n            LEFT JOIN players t ON p.target_id = t.id\n            WHERE p.game_id = $1 AND LOWER(p.name) = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -46,8 +46,8 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int4"
+        "Int4",
+        "Text"
       ]
     },
     "nullable": [
@@ -61,5 +61,5 @@
       null
     ]
   },
-  "hash": "04a6d1bd3eed188b24eea3c8a66cd35c6db6f168e5e46962ed373ea4fec61392"
+  "hash": "b884036cf0a030eb8d369c4a5a2d2051a672fc3b377b7a401b4ce16cf4b8093c"
 }

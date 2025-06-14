@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO games (code, status) VALUES ($1, 'lobby') RETURNING id",
+  "query": "INSERT INTO games (code) VALUES ($1) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "a39ec7499523fdeddef42ac969ee9007e017c19336dd6b794d182ea80e574eea"
+  "hash": "5928c77bd86802716d68f0973e6f299b3d9319f824fa39789a6ee3a6f3dde8f3"
 }

@@ -11,7 +11,18 @@
       {
         "ordinal": 1,
         "name": "status: _",
-        "type_info": "Text"
+        "type_info": {
+          "Custom": {
+            "name": "game_status",
+            "kind": {
+              "Enum": [
+                "lobby",
+                "in_progress",
+                "finished"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 2,
