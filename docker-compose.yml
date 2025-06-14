@@ -17,6 +17,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - hitman-network
 
   app:
     build: .
@@ -32,6 +34,12 @@ services:
       db:
         condition: service_healthy
     command: ./hitman
-
+    networks:
+      - hitman-network
+  
 volumes:
   pgdata: 
+
+networks:
+  hitman-network:
+    driver: bridge
