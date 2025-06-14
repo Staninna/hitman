@@ -16,7 +16,7 @@ pub async fn index(State(state): State<AppState>) -> impl IntoResponse {
         ..Default::default()
     };
     ctx.insert("ctx", &index_ctx);
-    match state.tera.render("welcome.html", &ctx) {
+    match state.tera.render("welcome.tera.html", &ctx) {
         Ok(s) => Html(s).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }

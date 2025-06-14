@@ -38,7 +38,7 @@ pub async fn game_page(
         ..Default::default()
     };
     context.insert("ctx", &index_ctx);
-    match state.tera.render("welcome.html", &context) {
+    match state.tera.render("welcome.tera.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }

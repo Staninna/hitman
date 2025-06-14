@@ -41,7 +41,7 @@ pub async fn lobby_page(
 
     context.insert("ctx", &index_context);
 
-    match state.tera.render("lobby.html", &context) {
+    match state.tera.render("lobby.tera.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }

@@ -40,7 +40,7 @@ pub async fn game_in_progress_page(
     }
 
     context.insert("ctx", &index_context);
-    match state.tera.render("game.html", &context) {
+    match state.tera.render("game.tera.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }

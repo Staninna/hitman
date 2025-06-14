@@ -39,7 +39,7 @@ pub async fn eliminated_page(
     }
 
     context.insert("ctx", &index_context);
-    match state.tera.render("eliminated.html", &context) {
+    match state.tera.render("eliminated.tera.html", &context) {
         Ok(s) => Html(s).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
