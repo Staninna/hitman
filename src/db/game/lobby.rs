@@ -4,6 +4,7 @@ use crate::models::{GameStatus, Player};
 use rand::seq::SliceRandom;
 use tracing::{debug, info};
 use uuid::Uuid;
+use crate::utils::generate_code;
 
 impl Db {
     /// Create a new game and the first (host) player
@@ -11,7 +12,7 @@ impl Db {
         &self,
         player_name: String,
         game_code: String,
-    ) -> Result<(i64, i64, Uuid, String), sqlx::Error> {
+    ) -> Result<(i64, i64, String, String), sqlx::Error> {
         info!(
             "Creating game with code {} for player {}",
             game_code, player_name
@@ -19,7 +20,7 @@ impl Db {
         let mut tx = self.0.begin().await?;
         debug!("Transaction started for create_game");
 
-        let player_secret = Uuid::new_v4();
+        let player_secret = generate_code(7);
         let auth_token = Uuid::new_v4().to_string();
 
         let game_id = sqlx::query!(

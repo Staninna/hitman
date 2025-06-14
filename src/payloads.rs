@@ -21,7 +21,7 @@ pub struct JoinGamePayload {
 pub struct GameCreatedPayload {
     pub game_code: String,
     pub player_id: i64,
-    pub player_secret: Uuid,
+    pub player_secret: String,
     pub auth_token: String,
     pub players: Vec<Player>,
     pub game: Game,

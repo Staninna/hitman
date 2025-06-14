@@ -2,7 +2,7 @@ use crate::{
     errors::AppError,
     payloads::{CreateGamePayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload},
     state::AppState,
-    utils::generate_game_code,
+    utils::generate_code,
 };
 use axum::{
     extract::{Path, State},
@@ -25,7 +25,7 @@ pub async fn create_game(
         .unwrap_or_else(|_| "4".into())
         .parse()
         .expect("GAME_CODE_LENGTH must be number");
-    let game_code = generate_game_code(game_code_len);
+    let game_code = generate_code(game_code_len);
     let (game_id, player_id, player_secret, auth_token) = state
         .db
         .create_game(payload.player_name, game_code.clone())

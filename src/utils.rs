@@ -1,6 +1,6 @@
 use rand::Rng as _;
 
-pub fn generate_game_code(len: usize) -> String {
+pub fn generate_code(len: usize) -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
     let mut rng = rand::rng();
     let code: String = (0..len)
