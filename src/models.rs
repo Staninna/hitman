@@ -2,10 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
 #[sqlx(type_name = "game_status", rename_all = "lowercase")]
 pub enum GameStatus {
     Lobby,
+    #[sqlx(rename = "in_progress")]
     InProgress,
     Finished,
 }
