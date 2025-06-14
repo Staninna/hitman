@@ -1,5 +1,5 @@
 import { showModal, hideModal } from './utils/ui.js';
-import { showToast } from './utils/toast.js';
+import { showToast } from './utils/ui.js';
 import { createGame, joinGame } from './services/api.js';
 
 document.addEventListener('DOMContentLoaded', () => {

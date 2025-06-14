@@ -1,6 +1,6 @@
 import { gameState } from "../core/state.js";
 import * as api from "./api.js";
-import { showToast } from "../utils/toast.js";
+import { showToast } from "../utils/ui.js";
 
 export class GameService {
 	#pollingIntervalId = null;

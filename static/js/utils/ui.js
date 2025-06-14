@@ -1,20 +1,52 @@
-function showToast(message, type = 'info', duration = 3000) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+function showToast(message, type = 'info', duration = 6000) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
 
-    document.body.appendChild(toast);
+    const toastWindow = document.createElement('div');
+    toastWindow.className = 'window';
 
-    setTimeout(() => {
-        toast.style.opacity = '1';
-    }, 100);
+    const titleBar = document.createElement('div');
+    titleBar.className = 'title-bar';
 
-    setTimeout(() => {
-        toast.style.opacity = '0';
+    const titleBarText = document.createElement('div');
+    titleBarText.className = 'title-bar-text';
+    titleBarText.textContent = type === 'error' ? 'Error' : 'Notification';
+
+    const titleBarControls = document.createElement('div');
+    titleBarControls.className = 'title-bar-controls';
+    
+    const closeButton = document.createElement('button');
+    closeButton.setAttribute('aria-label', 'Close');
+    
+    titleBarControls.appendChild(closeButton);
+    titleBar.appendChild(titleBarText);
+    titleBar.appendChild(titleBarControls);
+
+    const windowBody = document.createElement('div');
+    windowBody.className = 'window-body';
+    windowBody.textContent = message;
+
+    toastWindow.appendChild(titleBar);
+    toastWindow.appendChild(windowBody);
+    
+    toastContainer.appendChild(toastWindow);
+    document.body.appendChild(toastContainer);
+
+    const dismiss = () => {
+        toastContainer.classList.remove('show');
         setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 500);
-    }, duration);
+            if (document.body.contains(toastContainer)) {
+                document.body.removeChild(toastContainer);
+            }
+        }, 500); // Match CSS transition
+    };
+
+    closeButton.addEventListener('click', dismiss);
+    const timeoutId = setTimeout(dismiss, duration);
+
+    setTimeout(() => {
+        toastContainer.classList.add('show');
+    }, 100);
 }
 
 function copyToClipboard(text, successMessage) {
