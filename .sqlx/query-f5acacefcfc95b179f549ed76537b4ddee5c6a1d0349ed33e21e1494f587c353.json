@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                p.id as \"id!\",\n                p.name,\n                p.secret_code,\n                p.auth_token,\n                p.is_alive,\n                p.target_id,\n                p.game_id,\n                t.name as \"target_name: _\"\n            FROM players p\n            LEFT JOIN players t ON p.target_id = t.id\n            WHERE p.game_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "secret_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "auth_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_alive",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "target_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "game_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "target_name: _",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f5acacefcfc95b179f549ed76537b4ddee5c6a1d0349ed33e21e1494f587c353"
+}

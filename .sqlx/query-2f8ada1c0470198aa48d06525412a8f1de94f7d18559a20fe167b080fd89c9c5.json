@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                g.code,\n                g.status AS \"status: _\",\n                (\n                    SELECT COUNT(*)\n                    FROM players p\n                    WHERE p.game_id = g.id\n                ) AS \"player_count!\"\n            FROM games g\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "status: _",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "player_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "2f8ada1c0470198aa48d06525412a8f1de94f7d18559a20fe167b080fd89c9c5"
+}

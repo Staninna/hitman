@@ -1,5 +1,4 @@
 target/
 .env
-.sqlx
 .idea
 hitman.db

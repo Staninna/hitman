@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id as \"id!\",\n                name,\n                secret_code,\n                auth_token,\n                is_alive,\n                target_id,\n                game_id,\n                NULL as \"target_name: _\"\n            FROM players\n            WHERE auth_token = $1 AND game_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "secret_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "auth_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_alive",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "target_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "game_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "target_name: _",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "04a6d1bd3eed188b24eea3c8a66cd35c6db6f168e5e46962ed373ea4fec61392"
+}

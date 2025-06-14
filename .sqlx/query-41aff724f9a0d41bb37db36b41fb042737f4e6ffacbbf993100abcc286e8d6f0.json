@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id            AS \"id!\",\n                status        AS \"status: _\",\n                host_id       AS \"host_id: _\",\n                code          AS \"code: _\"\n            FROM games\n            WHERE code = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "status: _",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "host_id: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "code: _",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "41aff724f9a0d41bb37db36b41fb042737f4e6ffacbbf993100abcc286e8d6f0"
+}
