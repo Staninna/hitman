@@ -50,6 +50,18 @@ impl Db {
         .await?;
 
         tx.commit().await?;
+
+        self.1.insert(auth_token.clone(), Player {
+            id: player_id,
+            name: player_name.clone(),
+            secret_code: player_secret,
+            auth_token: auth_token.clone(),
+            is_alive: true,
+            target_id: None,
+            game_id,
+            target_name: None,
+        });
+
         Ok((game_id, player_id, player_secret, auth_token))
     }
 
@@ -79,6 +91,9 @@ impl Db {
                 tx.commit()
                     .await
                     .map_err(|_| AppError::InternalServerError)?;
+
+                self.1.insert(p.auth_token.clone(), p.clone());
+
                 return Ok((p.game_id, p.id, p.secret_code, p.auth_token));
             } else {
                 return Err(AppError::Forbidden(
@@ -114,6 +129,18 @@ impl Db {
         tx.commit()
             .await
             .map_err(|_| AppError::InternalServerError)?;
+
+        self.1.insert(auth_token.clone(), Player {
+            id: player_id,
+            name: player_name.clone(),
+            secret_code: player_secret,
+            auth_token: auth_token.clone(),
+            is_alive: true,
+            target_id: None,
+            game_id: game.id,
+            target_name: None,
+        });
+
         Ok((game.id, player_id, player_secret, auth_token))
     }
 
@@ -167,6 +194,11 @@ impl Db {
         tx.commit()
             .await
             .map_err(|_| AppError::InternalServerError)?;
+
+        for p in &players {
+            self.1.remove(&p.auth_token);
+        }
+
         Ok(self.get_players_by_game_id(game.id).await?)
     }
 }
