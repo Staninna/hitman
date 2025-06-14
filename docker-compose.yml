@@ -24,7 +24,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "42070:3000"
+      - 3000
     environment:
       - DATABASE_URL=postgres://postgres:password@db:5432/hitman
       - RUST_LOG=info
@@ -36,7 +36,7 @@ services:
     command: ./hitman
     networks:
       - hitman-network
-  
+
 volumes:
   pgdata: 
 
