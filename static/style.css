@@ -39,5 +39,3 @@ body, html {
     opacity: 1;
     transition: opacity 0.5s ease-in-out;
 }
-
-/* Remove the redundant font-face definition and other styles if they are covered by xp.css */
