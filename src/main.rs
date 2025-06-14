@@ -18,7 +18,10 @@ async fn main() {
         .init();
 
     let db = Db::new().await.expect("Failed to create database pool");
-    let tera = Tera::new("templates/**/*").expect("Failed to create Tera instance");
+    let mut template_path = dotenvy::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    template_path.push_str("/templates/**/*");
+
+    let tera = Tera::new(&template_path).expect("Failed to create Tera instance");
 
     let app_state = AppState {
         db,
