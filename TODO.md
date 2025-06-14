@@ -2,3 +2,4 @@
 - [ ] lowercase game codes
 - [ ] locale in errors and frontend
 - [ ] 'skeleton' of the webside so it does't 'flash' when getting hydrated flash == small to big
+- [ ] welcome page should have more info on the game
