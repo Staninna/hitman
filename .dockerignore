@@ -1,0 +1,20 @@
+# Ignore the rust build directory
+/target
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore IDE files
+.idea
+
+# Ignore local database files
+*.db
+*.db-shm
+*.db-wal
+
+# Ignore other files
+TODO.md
+Dockerfile
+.llm-dir-ignore
+LICENCE 
