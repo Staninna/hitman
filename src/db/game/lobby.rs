@@ -25,7 +25,7 @@ impl Db {
         let auth_token = Uuid::new_v4().to_string();
 
         let game_id = sqlx::query!(
-            "INSERT INTO games (code, status) VALUES ($1, 'lobby') RETURNING id",
+            "INSERT INTO games (code) VALUES ($1) RETURNING id",
             game_code
         )
         .fetch_one(&mut *tx)
