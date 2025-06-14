@@ -71,6 +71,7 @@ impl Db {
             "Fetching player by name {} for game_id {}",
             player_name, game_id
         );
+        let normalised_name = crate::utils::normalise_name(player_name);
         let player = sqlx::query_as!(
             Player,
             r#"
@@ -84,10 +85,10 @@ impl Db {
                 game_id,
                 NULL as "target_name: _"
             FROM players
-            WHERE game_id = ? AND name = ?
+            WHERE game_id = ? AND LOWER(name) = ?
             "#,
             game_id,
-            player_name
+            normalised_name
         )
         .fetch_optional(&self.0)
         .await

@@ -10,9 +10,10 @@ impl Db {
     /// Create a new game and the first (host) player
     pub async fn create_game(
         &self,
-        player_name: String,
+        mut player_name: String,
         game_code: String,
     ) -> Result<(i64, i64, String, String), sqlx::Error> {
+        player_name = player_name.trim().to_string();
         info!(
             "Creating game with code {} for player {}",
             game_code, player_name
@@ -61,6 +62,7 @@ impl Db {
         game_code: String,
         player_name: String,
     ) -> Result<(i64, i64, String, String), AppError> {
+        let player_name = player_name.trim().to_string();
         info!("Player {} joining game {}", player_name, game_code);
         let mut tx = self
             .0

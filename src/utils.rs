@@ -12,3 +12,7 @@ pub fn generate_code(len: usize) -> String {
     tracing::debug!("Generated game code: {}", code);
     code
 }
+
+pub fn normalise_name(name: &str) -> String {
+    name.trim().to_lowercase()
+}
