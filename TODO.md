@@ -1,3 +1,9 @@
+# important
+
+- [ ] toast css is fucked up
+
+# later
+
 - [ ] add private mode s players cant see who is still alive
 - [ ] lowercase game codes
 - [ ] locale in errors and frontend
