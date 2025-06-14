@@ -36,7 +36,6 @@ services:
     command: ./hitman
     networks:
       - hitman-network
-    domain: hit.stanro.chat
 
 volumes:
   pgdata: 
