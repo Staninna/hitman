@@ -1,5 +1,5 @@
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
-use std::{env, ops::Deref};
+use std::ops::Deref;
 use tracing::info;
 
 #[derive(Debug, Clone)]
@@ -8,7 +8,7 @@ pub struct Db(SqlitePool);
 impl Db {
     /// Initialise a new database connection pool and run migrations.
     pub async fn new() -> Result<Self, sqlx::Error> {
-        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
         info!("Connecting to database at {}", db_url);
 
         let pool = SqlitePoolOptions::new()
