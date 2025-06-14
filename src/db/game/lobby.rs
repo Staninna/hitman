@@ -77,15 +77,15 @@ impl Db {
             ));
         }
 
-        // Re-connect case
+        // Check if a player with the requested name already exists in this game
         if let Some(p) = self.get_player_by_name(game.id, &player_name).await? {
             if p.is_alive {
-                tx.commit()
-                    .await
-                    .map_err(|_| AppError::InternalServerError)?;
-
-                return Ok((p.game_id, p.id, p.secret_code, p.auth_token));
+                // A living player with this name is already in the lobby – reject the join attempt.
+                return Err(AppError::UnprocessableEntity(
+                    "Player name already taken".to_string(),
+                ));
             } else {
+                // The player existed previously but has been eliminated – they cannot re-join.
                 return Err(AppError::Forbidden(
                     "You have been eliminated from this game.".to_string(),
                 ));
