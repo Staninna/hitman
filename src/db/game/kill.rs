@@ -36,9 +36,6 @@ impl Db {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        self.1.remove(killer_token);
-        self.1.remove(&target.auth_token);
-
         Ok((killer.id, killer.name, target.name, new_target_name))
     }
 

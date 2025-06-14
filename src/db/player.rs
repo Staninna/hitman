@@ -37,13 +37,8 @@ impl Db {
         &self,
         auth_token: &str,
     ) -> Result<Option<Player>, sqlx::Error> {
-        // First attempt to read from the in-memory cache.
-        if let Some(p) = self.1.get(auth_token) {
-            debug!("Player fetched from cache for auth_token: {}", auth_token);
-            return Ok(Some(p.value().clone()));
-        }
+        info!("Fetching player by auth_token: {}", auth_token);
 
-        debug!("Cache miss – fetching player by auth_token from DB");
         let player = sqlx::query_as!(
             Player,
             r#"
@@ -64,10 +59,6 @@ impl Db {
         )
         .fetch_optional(&self.0)
         .await?;
-
-        if let Some(ref p) = player {
-            self.1.insert(auth_token.to_string(), p.clone());
-        }
 
         Ok(player)
     }
@@ -135,8 +126,6 @@ impl Db {
         tx.commit()
             .await
             .map_err(|_| AppError::InternalServerError)?;
-
-        self.1.remove(auth_token);
 
         Ok(())
     }

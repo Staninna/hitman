@@ -1,13 +1,9 @@
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::{env, ops::Deref};
 use tracing::info;
-use dashmap::DashMap;
-use std::sync::Arc;
-
-use crate::models::Player;
 
 #[derive(Debug, Clone)]
-pub struct Db(pub(crate) SqlitePool, pub(crate) Arc<DashMap<String, crate::models::Player>>);
+pub struct Db(SqlitePool);
 
 impl Db {
     /// Initialise a new database connection pool and run migrations.
@@ -24,9 +20,7 @@ impl Db {
         sqlx::migrate!("./migrations").run(&pool).await?;
         info!("Database migrations complete.");
 
-        let player_cache: Arc<DashMap<String, Player>> = Arc::new(DashMap::new());
-
-        Ok(Db(pool, player_cache))
+        Ok(Db(pool))
     }
 }
 
