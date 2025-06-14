@@ -1,0 +1,1 @@
+- [ ] add private mode s players cant see who is still alive
