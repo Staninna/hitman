@@ -10,7 +10,7 @@ impl Db {
         game_code: &str,
         killer_token: &str,
         target_secret: &str,
-    ) -> Result<(i64, String, String, Option<String>), AppError> {
+    ) -> Result<(i32, String, String, Option<String>), AppError> {
         let mut tx = self
             .0
             .begin()
@@ -88,7 +88,8 @@ impl Db {
             killer.game_id
         )
         .fetch_one(&mut **tx)
-        .await?;
+        .await?
+        .unwrap_or(0);
         if alive_count <= 1 {
             sqlx::query!(
                 "UPDATE games SET status = 'finished', winner_id = $1 WHERE id = $2",

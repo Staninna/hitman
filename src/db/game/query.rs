@@ -58,7 +58,7 @@ impl Db {
         }
     }
 
-    pub async fn get_game_by_id(&self, game_id: i64) -> Result<Option<Game>, sqlx::Error> {
+    pub async fn get_game_by_id(&self, game_id: i32) -> Result<Option<Game>, sqlx::Error> {
         sqlx::query_as!(
             Game,
             r#"

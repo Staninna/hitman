@@ -22,7 +22,7 @@ impl Display for GameStatus {
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize, PartialEq)]
 pub struct Player {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     #[serde(skip)]
     pub secret_code: String,
@@ -30,18 +30,18 @@ pub struct Player {
     pub auth_token: String,
     pub is_alive: bool,
     #[serde(skip)]
-    pub target_id: Option<i64>,
+    pub target_id: Option<i32>,
     #[serde(skip)]
-    pub game_id: i64,
+    pub game_id: i32,
     #[serde(default)]
     pub target_name: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Game {
-    pub id: i64,
+    pub id: i32,
     pub status: GameStatus,
-    pub host_id: Option<i64>,
+    pub host_id: Option<i32>,
     pub code: String,
 }
 

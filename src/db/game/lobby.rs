@@ -12,7 +12,7 @@ impl Db {
         &self,
         mut player_name: String,
         game_code: String,
-    ) -> Result<(i64, i64, String, String), sqlx::Error> {
+    ) -> Result<(i32, i32, String, String), sqlx::Error> {
         player_name = player_name.trim().to_string();
         info!(
             "Creating game with code {} for player {}",
@@ -25,26 +25,25 @@ impl Db {
         let auth_token = Uuid::new_v4().to_string();
 
         let game_id = sqlx::query!(
-            "INSERT INTO games (code, status) VALUES (?, 'lobby') RETURNING id",
+            "INSERT INTO games (code, status) VALUES ($1, 'lobby') RETURNING id",
             game_code
         )
         .fetch_one(&mut *tx)
         .await?
         .id;
 
-        let player_id = sqlx::query!(
-            "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
+        let player_id: i32 = sqlx::query_scalar!(
+            "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES ($1, $2, $3, $4) RETURNING id",
             game_id,
             player_name,
             player_secret,
             auth_token
         )
-        .execute(&mut *tx)
-        .await?
-        .last_insert_rowid();
+        .fetch_one(&mut *tx)
+        .await?;
 
         sqlx::query!(
-            "UPDATE games SET host_id = ? WHERE id = ?",
+            "UPDATE games SET host_id = $1 WHERE id = $2",
             player_id,
             game_id
         )
@@ -61,7 +60,7 @@ impl Db {
         &self,
         game_code: String,
         player_name: String,
-    ) -> Result<(i64, i64, String, String), AppError> {
+    ) -> Result<(i32, i32, String, String), AppError> {
         let player_name = player_name.trim().to_string();
         info!("Player {} joining game {}", player_name, game_code);
         let mut tx = self
@@ -96,14 +95,14 @@ impl Db {
         let player_secret = generate_code(7);
         let auth_token = Uuid::new_v4().to_string();
 
-        let player_id = sqlx::query!(
-            "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES (?, ?, ?, ?)",
+        let player_id: i32 = sqlx::query_scalar!(
+            "INSERT INTO players (game_id, name, secret_code, auth_token) VALUES ($1, $2, $3, $4) RETURNING id",
             game.id,
             player_name,
             player_secret,
             auth_token
         )
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|e| {
             if let Some(db_err) = e.as_database_error() {
@@ -118,8 +117,7 @@ impl Db {
                 e
             );
             AppError::InternalServerError
-        })?
-        .last_insert_rowid();
+        })?;
 
         tx.commit()
             .await
@@ -132,7 +130,7 @@ impl Db {
     pub async fn start_game(
         &self,
         game_code: &str,
-        player_id: i64,
+        player_id: i32,
     ) -> Result<Vec<Player>, AppError> {
         info!("Starting game {} by player {}", game_code, player_id);
         let mut tx = self
@@ -154,13 +152,13 @@ impl Db {
             ));
         }
 
-        let mut ids: Vec<i64> = players.iter().map(|p| p.id).collect();
+        let mut ids: Vec<i32> = players.iter().map(|p| p.id).collect();
         ids.shuffle(&mut rand::rng());
 
         for (idx, &pid) in ids.iter().enumerate() {
             let target_id = ids[(idx + 1) % ids.len()];
             sqlx::query!(
-                "UPDATE players SET target_id = ? WHERE id = ?",
+                "UPDATE players SET target_id = $1 WHERE id = $2",
                 target_id,
                 pid
             )
@@ -169,7 +167,7 @@ impl Db {
         }
 
         sqlx::query!(
-            "UPDATE games SET status = 'in_progress' WHERE id = ?",
+            "UPDATE games SET status = 'in_progress' WHERE id = $1",
             game.id
         )
         .execute(&mut *tx)

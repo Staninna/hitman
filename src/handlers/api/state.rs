@@ -14,7 +14,7 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct PlayerGameState {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub is_alive: bool,
     pub target_name: Option<String>,

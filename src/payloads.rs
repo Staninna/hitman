@@ -18,7 +18,7 @@ pub struct JoinGamePayload {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameCreatedPayload {
     pub game_code: String,
-    pub player_id: i64,
+    pub player_id: i32,
     pub player_secret: String,
     pub auth_token: String,
     pub players: Vec<Player>,
@@ -29,7 +29,7 @@ pub struct GameCreatedPayload {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameJoinedPayload {
     pub game_code: String,
-    pub player_id: i64,
+    pub player_id: i32,
     pub player_secret: String,
     pub auth_token: String,
     pub players: Vec<Player>,

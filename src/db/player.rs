@@ -6,7 +6,7 @@ use tracing::{debug, info};
 impl Db {
     // -------- Public player APIs ---------
 
-    pub async fn get_players_by_game_id(&self, game_id: i64) -> Result<Vec<Player>, sqlx::Error> {
+    pub async fn get_players_by_game_id(&self, game_id: i32) -> Result<Vec<Player>, sqlx::Error> {
         info!("Fetching players for game_id: {}", game_id);
         let players = sqlx::query_as!(
             Player,
@@ -64,7 +64,7 @@ impl Db {
 
     pub async fn get_player_by_name(
         &self,
-        game_id: i64,
+        game_id: i32,
         player_name: &str,
     ) -> Result<Option<Player>, AppError> {
         info!(
@@ -189,7 +189,7 @@ impl Db {
         &self,
         tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
         killer_token: &str,
-        game_id: i64,
+        game_id: i32,
     ) -> Result<Player, AppError> {
         sqlx::query_as!(
             Player,
@@ -227,7 +227,7 @@ impl Db {
         &self,
         tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
         target_secret: &str,
-        game_id: i64,
+        game_id: i32,
     ) -> Result<Player, AppError> {
         sqlx::query_as!(
             Player,
