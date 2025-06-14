@@ -25,6 +25,7 @@ pub struct GameCreatedPayload {
     pub auth_token: String,
     pub players: Vec<Player>,
     pub game: Game,
+    pub version: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,6 +36,7 @@ pub struct GameJoinedPayload {
     pub auth_token: String,
     pub players: Vec<Player>,
     pub game: Game,
+    pub version: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

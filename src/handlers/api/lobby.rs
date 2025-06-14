@@ -1,4 +1,3 @@
-use super::utils::mark_all_players;
 use crate::{
     errors::AppError,
     payloads::{CreateGamePayload, GameCreatedPayload, GameJoinedPayload, JoinGamePayload},
@@ -38,7 +37,7 @@ pub async fn create_game(
         .get_game_by_code(&game_code)
         .await?
         .ok_or(AppError::InternalServerError)?;
-    mark_all_players(&state.changes, &game_code, &players);
+    let version = state.bump_game_version(&game_code);
     let response = GameCreatedPayload {
         game_code,
         player_id,
@@ -46,6 +45,7 @@ pub async fn create_game(
         auth_token,
         players,
         game,
+        version,
     };
     Ok((StatusCode::CREATED, Json(response)))
 }
@@ -66,7 +66,7 @@ pub async fn join_game(
         .get_game_by_code(&game_code)
         .await?
         .ok_or(AppError::NotFound("Game not found".into()))?;
-    mark_all_players(&state.changes, &game_code, &players);
+    let version = state.bump_game_version(&game_code);
     let response = GameJoinedPayload {
         game_code,
         player_id,
@@ -74,6 +74,7 @@ pub async fn join_game(
         auth_token,
         players,
         game,
+        version,
     };
     Ok(Json(response))
 }
@@ -90,6 +91,6 @@ pub async fn start_game(
         .await?
         .ok_or(AppError::Forbidden("Invalid auth token.".into()))?;
     let players = state.db.start_game(&game_code, player.id).await?;
-    mark_all_players(&state.changes, &game_code, &players);
+    state.bump_game_version(&game_code);
     Ok(Json(players))
 }

@@ -3,6 +3,7 @@ class GameStateManager {
         this.gameCode = null;
         this.playerId = null;
         this.authToken = null;
+        this.version = 0;
         this.pollingInterval = null;
     }
 
@@ -17,6 +18,7 @@ class GameStateManager {
             gameCode: this.gameCode,
             playerId: this.playerId,
             authToken: this.authToken,
+            version: this.version,
         };
     }
 
@@ -33,6 +35,14 @@ class GameStateManager {
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
         }
+    }
+
+    setVersion(version) {
+        this.version = version;
+    }
+
+    getVersion() {
+        return this.version;
     }
 }
 

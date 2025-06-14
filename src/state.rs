@@ -7,25 +7,18 @@ use tera::Tera;
 pub struct AppState {
     pub db: Db,
     pub tera: Tera,
-    // changes: game_code -> (player_id -> should_refetch)
-    pub changes: Arc<DashMap<String, DashMap<i64, bool>>>,
+    pub versions: Arc<DashMap<String, i64>>,
 }
 
 impl AppState {
-    pub fn debug(&self) {
-        // loop through all the games
-        for game_ref in self.changes.iter() {
-            let game_code = game_ref.key();
-            let player_map = game_ref.value();
-            // loop through all the players in the game
-            for player_ref in player_map.iter() {
-                println!(
-                    "Game code: {}, Player ID: {}, Should refetch: {}",
-                    game_code,
-                    player_ref.key(),
-                    player_ref.value()
-                );
-            }
-        }
+    pub fn bump_game_version(&self, game_code: &str) -> i64 {
+        let mut entry = self.versions.entry(game_code.to_string()).or_insert(0);
+        *entry.value_mut() += 1;
+        *entry
+    }
+
+    /// Fetch the current version for a game (defaults to 0 if never seen).
+    pub fn get_game_version(&self, game_code: &str) -> i64 {
+        self.versions.get(game_code).map(|v| *v.value()).unwrap_or(0)
     }
 }

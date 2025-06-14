@@ -24,14 +24,19 @@ export async function pollForChanges() {
     const { gameCode } = gameState.getGameDetails();
     if (!gameCode) return;
 
+    const version = gameState.getVersion();
+
     try {
-        const data = await fetchApi(`${API_BASE_URL}/api/game/${gameCode}/changed`);
+        const data = await fetchApi(`${API_BASE_URL}/api/game/${gameCode}/changed?version=${version}`);
+        if (typeof data.current_version === 'number') {
+            gameState.setVersion(data.current_version);
+        }
         if (data.changed) {
-            fetchGameState();
+            await fetchGameState();
         }
     } catch (error) {
         console.error("Error polling for changes:", error);
-        if (error.message.includes('404')) {
+        if (error.message && error.message.includes('404')) {
             alert("The game session could not be found.");
             leaveGame();
         }
@@ -41,7 +46,10 @@ export async function pollForChanges() {
 export async function fetchGameState() {
     const { gameCode } = gameState.getGameDetails();
     try {
-        const { game, players } = await fetchApi(`${API_BASE_URL}/api/game/${gameCode}`);
+        const { game, players, version } = await fetchApi(`${API_BASE_URL}/api/game/${gameCode}`);
+        if (typeof version === 'number') {
+            gameState.setVersion(version);
+        }
         updateGameState(game, players);
     } catch (error) {
         console.error("Error fetching game state:", error);

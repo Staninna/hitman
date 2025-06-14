@@ -1,3 +1,5 @@
+use dashmap::DashMap;
+use std::sync::Arc;
 use hitman::{create_router, db::Db, state::AppState};
 use tera::Tera;
 use tower_http::cors::{Any, CorsLayer};
@@ -22,7 +24,7 @@ async fn main() {
     let app_state = AppState {
         db,
         tera,
-        changes: std::sync::Arc::new(dashmap::DashMap::new()),
+        versions: Arc::new(DashMap::new()),
     };
 
     let app = create_router(app_state).layer(

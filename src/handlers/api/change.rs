@@ -1,37 +1,32 @@
 use crate::{errors::AppError, state::AppState};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
-use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
-    TypedHeader,
-};
+use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
 
 #[derive(Serialize)]
 pub struct ChangedResponse {
     pub changed: bool,
+    pub current_version: i64,
+}
+
+#[derive(Deserialize)]
+pub struct VersionQuery {
+    pub version: Option<i64>,
 }
 
 pub async fn check_for_changes(
     State(state): State<AppState>,
     Path(game_code): Path<String>,
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Query(query): Query<VersionQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let player = state
-        .db
-        .get_player_by_auth_token(auth.token())
-        .await?
-        .ok_or(AppError::Forbidden("Invalid auth token.".into()))?;
-    let game_map = state.changes.entry(game_code).or_default();
-    let mut flag = game_map.entry(player.id).or_insert(true);
-    let changed = *flag;
-    if changed {
-        *flag = false;
-    }
-    info!("Player {} queried changes -> {}", player.id, changed);
-    Ok(Json(ChangedResponse { changed }))
+    let client_version = query.version.unwrap_or(0);
+    let current_version = state.get_game_version(&game_code);
+    let changed = current_version > client_version;
+    info!("Client version {} vs server {}, changed => {}", client_version, current_version, changed);
+    Ok(Json(ChangedResponse { changed, current_version }))
 }

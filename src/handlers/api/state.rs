@@ -1,4 +1,4 @@
-use super::utils::mark_all_players;
+use super::utils::bump_game_version;
 use crate::{errors::AppError, models::Game, state::AppState};
 use axum::{
     extract::{Path, State},
@@ -26,6 +26,7 @@ pub struct PlayerGameState {
 pub struct GameStateResponse {
     pub game: Game,
     pub players: Vec<PlayerGameState>,
+    pub version: i64,
 }
 
 pub async fn get_game_state(
@@ -57,9 +58,11 @@ pub async fn get_game_state(
             },
         })
         .collect();
+    let version = state.get_game_version(&game_code);
     Ok(Json(GameStateResponse {
         game,
         players: players_conv,
+        version,
     }))
 }
 
@@ -69,9 +72,8 @@ pub async fn leave_game(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
     state.db.leave_game(&game_code, auth.token()).await?;
-    if let Some(game) = state.db.get_game_by_code(&game_code).await? {
-        let all_players = state.db.get_players_by_game_id(game.id).await?;
-        mark_all_players(&state.changes, &game_code, &all_players);
+    if state.db.get_game_by_code(&game_code).await?.is_some() {
+        bump_game_version(&state, &game_code);
     }
     Ok(StatusCode::NO_CONTENT)
 }

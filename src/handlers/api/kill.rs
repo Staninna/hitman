@@ -1,4 +1,4 @@
-use super::utils::mark_all_players;
+use super::utils::bump_game_version;
 use crate::{errors::AppError, payloads::KillResponsePayload, state::AppState};
 use axum::{
     extract::{Path, State},
@@ -32,9 +32,8 @@ pub async fn kill_handler(
         .db
         .process_kill(&game_code, auth.token(), &secret)
         .await?;
-    if let Some(game) = state.db.get_game_by_code(&game_code).await? {
-        let players = state.db.get_players_by_game_id(game.id).await?;
-        mark_all_players(&state.changes, &game_code, &players);
+    if state.db.get_game_by_code(&game_code).await?.is_some() {
+        bump_game_version(&state, &game_code);
     }
     let resp = KillResponsePayload {
         eliminated_player_name: eliminated,
