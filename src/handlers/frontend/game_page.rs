@@ -16,7 +16,7 @@ pub async fn game_page(
         Ok(Some(game)) => {
             let players = state
                 .db
-                .get_players_by_game_id(game.id)
+                .get_players_by_game_id(&*state.db, game.id)
                 .await
                 .unwrap_or_default();
             (

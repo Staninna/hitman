@@ -31,7 +31,10 @@ pub async fn create_game(
         .create_game(payload.player_name, game_code.clone())
         .await?;
 
-    let players = state.db.get_players_by_game_id(game_id).await?;
+    let players = state
+        .db
+        .get_players_by_game_id(&*state.db, game_id)
+        .await?;
     let game = state
         .db
         .get_game_by_code(&game_code)
@@ -60,7 +63,10 @@ pub async fn join_game(
         .db
         .join_game(game_code.clone(), payload.player_name)
         .await?;
-    let players = state.db.get_players_by_game_id(game_id).await?;
+    let players = state
+        .db
+        .get_players_by_game_id(&*state.db, game_id)
+        .await?;
     let game = state
         .db
         .get_game_by_code(&game_code)

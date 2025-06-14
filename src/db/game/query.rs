@@ -51,7 +51,7 @@ impl Db {
     ) -> Result<Option<(Game, Vec<Player>)>, AppError> {
         let game = self.get_game_by_code(game_code).await?;
         if let Some(g) = game {
-            let players = self.get_players_by_game_id(g.id).await?;
+            let players = self.get_players_by_game_id(&self.0, g.id).await?;
             Ok(Some((g, players)))
         } else {
             Ok(None)

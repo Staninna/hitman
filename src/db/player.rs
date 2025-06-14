@@ -1,3 +1,5 @@
+use sqlx::{Executor, Postgres};
+
 use super::Db;
 use crate::errors::AppError;
 use crate::models::{GameStatus, Player};
@@ -6,7 +8,14 @@ use tracing::{debug, info};
 impl Db {
     // -------- Public player APIs ---------
 
-    pub async fn get_players_by_game_id(&self, game_id: i32) -> Result<Vec<Player>, sqlx::Error> {
+    pub async fn get_players_by_game_id<'e, E>(
+        &self,
+        executor: E,
+        game_id: i32,
+    ) -> Result<Vec<Player>, sqlx::Error>
+    where
+        E: Executor<'e, Database = Postgres>,
+    {
         info!("Fetching players for game_id: {}", game_id);
         let players = sqlx::query_as!(
             Player,
@@ -19,14 +28,14 @@ impl Db {
                 p.is_alive,
                 p.target_id,
                 p.game_id,
-                t.name as "target_name: _"
+                COALESCE(t.name, '') as "target_name: _"
             FROM players p
             LEFT JOIN players t ON p.target_id = t.id
             WHERE p.game_id = $1
             "#,
             game_id
         )
-        .fetch_all(&self.0)
+        .fetch_all(executor)
         .await?;
         debug!("Found {} players for game_id {}", players.len(), game_id);
         Ok(players)
@@ -49,7 +58,7 @@ impl Db {
                 p.is_alive,
                 p.target_id,
                 p.game_id,
-                t.name as "target_name: _"
+                COALESCE(t.name, '') as "target_name: _"
             FROM players p
             LEFT JOIN players t ON p.target_id = t.id
             WHERE p.auth_token = $1
@@ -76,16 +85,17 @@ impl Db {
             Player,
             r#"
             SELECT
-                id as "id!",
-                name,
-                secret_code,
-                auth_token,
-                is_alive,
-                target_id,
-                game_id,
-                NULL as "target_name: _"
-            FROM players
-            WHERE game_id = $1 AND LOWER(name) = $2
+                p.id as "id!",
+                p.name,
+                p.secret_code,
+                p.auth_token,
+                p.is_alive,
+                p.target_id,
+                p.game_id,
+                COALESCE(t.name, '') as "target_name: _"
+            FROM players p
+            LEFT JOIN players t ON p.target_id = t.id
+            WHERE p.game_id = $1 AND LOWER(p.name) = $2
             "#,
             game_id,
             normalised_name
@@ -135,7 +145,7 @@ impl Db {
                         p.is_alive,
                         p.target_id,
                         p.game_id,
-                        t.name as "target_name: _"
+                        COALESCE(t.name, '') as "target_name: _"
                     FROM players p
                     LEFT JOIN players t ON p.target_id = t.id
                     WHERE p.game_id = $1 ORDER BY p.id ASC
@@ -195,16 +205,17 @@ impl Db {
             Player,
             r#"
             SELECT
-                id as "id!",
-                name,
-                secret_code,
-                auth_token,
-                is_alive,
-                target_id,
-                game_id,
-                NULL as "target_name: _"
-            FROM players
-            WHERE auth_token = $1 AND game_id = $2
+                p.id as "id!",
+                p.name,
+                p.secret_code,
+                p.auth_token,
+                p.is_alive,
+                p.target_id,
+                p.game_id,
+                COALESCE(t.name, '') as "target_name: _"
+            FROM players p
+            LEFT JOIN players t ON p.target_id = t.id
+            WHERE p.auth_token = $1 AND p.game_id = $2
             "#,
             killer_token,
             game_id
@@ -233,16 +244,17 @@ impl Db {
             Player,
             r#"
             SELECT
-                id as "id!",
-                name,
-                secret_code,
-                auth_token,
-                is_alive,
-                target_id,
-                game_id,
-                NULL as "target_name: _"
-            FROM players
-            WHERE secret_code = $1 AND game_id = $2
+                p.id as "id!",
+                p.name,
+                p.secret_code,
+                p.auth_token,
+                p.is_alive,
+                p.target_id,
+                p.game_id,
+                COALESCE(t.name, '') as "target_name: _"
+            FROM players p
+            LEFT JOIN players t ON p.target_id = t.id
+            WHERE p.secret_code = $1 AND p.game_id = $2
             "#,
             target_secret,
             game_id

@@ -145,7 +145,7 @@ impl Db {
             ));
         }
 
-        let players = self.get_players_by_game_id(game.id).await?;
+        let players = self.get_players_by_game_id(&mut *tx, game.id).await?;
         if players.len() < 2 {
             return Err(AppError::UnprocessableEntity(
                 "You need at least 2 players in the lobby to start the game. Invite someone else to join first!".to_string(),
@@ -177,6 +177,6 @@ impl Db {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        Ok(self.get_players_by_game_id(game.id).await?)
+        Ok(self.get_players_by_game_id(&self.0, game.id).await?)
     }
 }
