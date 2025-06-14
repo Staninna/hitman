@@ -1,5 +1,7 @@
 # important
 
+- [ ] make toast look like a window with working close button winXP style
+
 # later
 
 - [ ] add private mode s players cant see who is still alive
