@@ -23,7 +23,7 @@ services:
   app:
     build: .
     restart: unless-stopped
-    ports:
+    expose:
       - 3000
     environment:
       - DATABASE_URL=postgres://postgres:password@db:5432/hitman
@@ -36,6 +36,9 @@ services:
     command: ./hitman
     networks:
       - hitman-network
+    domain: hit.stanro.chat
+    serviceName: app
+    ports: 3000
 
 volumes:
   pgdata: 
