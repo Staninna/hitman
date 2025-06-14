@@ -5,7 +5,6 @@ use axum::{
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
-use std::env;
 
 pub mod db;
 pub mod errors;

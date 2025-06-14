@@ -14,6 +14,7 @@ pub async fn lobby_page(
     let mut context = Context::new();
 
     let mut index_context = IndexContext {
+        page_name: Some("lobby".to_string()),
         is_rejoin_page: true,
         is_game_page: true,
         game_code: Some(game_code.clone()),

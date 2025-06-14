@@ -2,6 +2,7 @@ use serde::Serialize;
 
 #[derive(Serialize, Default, Clone)]
 pub struct IndexContext {
+    pub page_name: Option<String>,
     pub game_code: Option<String>,
     pub game_exists: Option<bool>,
     pub game_name: Option<String>,
