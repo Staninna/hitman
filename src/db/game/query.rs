@@ -35,7 +35,7 @@ impl Db {
                 host_id       AS "host_id: _",
                 code          AS "code: _"
             FROM games
-            WHERE code = ?
+            WHERE code = $1
             "#,
             code
         )
@@ -68,7 +68,7 @@ impl Db {
                 host_id       AS "host_id: _",
                 code          AS "code: _"
             FROM games
-            WHERE id = ?
+            WHERE id = $1
             "#,
             game_id
         )
@@ -79,7 +79,7 @@ impl Db {
     // ------- helpers within transaction --------
     pub(crate) async fn get_game_by_code_in_tx<'a>(
         &self,
-        tx: &mut sqlx::Transaction<'a, sqlx::Sqlite>,
+        tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
         game_code: &str,
     ) -> Result<Game, AppError> {
         sqlx::query_as!(
@@ -91,7 +91,7 @@ impl Db {
                 host_id       AS "host_id: _",
                 code          AS "code: _"
             FROM games
-            WHERE code = ?
+            WHERE code = $1
             "#,
             game_code
         )

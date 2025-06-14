@@ -22,7 +22,7 @@ impl Db {
                 t.name as "target_name: _"
             FROM players p
             LEFT JOIN players t ON p.target_id = t.id
-            WHERE p.game_id = ?
+            WHERE p.game_id = $1
             "#,
             game_id
         )
@@ -52,7 +52,7 @@ impl Db {
                 t.name as "target_name: _"
             FROM players p
             LEFT JOIN players t ON p.target_id = t.id
-            WHERE p.auth_token = ?
+            WHERE p.auth_token = $1
             "#,
             auth_token
         )
@@ -85,7 +85,7 @@ impl Db {
                 game_id,
                 NULL as "target_name: _"
             FROM players
-            WHERE game_id = ? AND LOWER(name) = ?
+            WHERE game_id = $1 AND LOWER(name) = $2
             "#,
             game_id,
             normalised_name
@@ -118,7 +118,7 @@ impl Db {
         if game.status == GameStatus::Lobby {
             let is_host = game.host_id == Some(player.id);
 
-            sqlx::query!("DELETE FROM players WHERE id = ?", player.id)
+            sqlx::query!("DELETE FROM players WHERE id = $1", player.id)
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
@@ -138,7 +138,7 @@ impl Db {
                         t.name as "target_name: _"
                     FROM players p
                     LEFT JOIN players t ON p.target_id = t.id
-                    WHERE p.game_id = ? ORDER BY p.id ASC
+                    WHERE p.game_id = $1 ORDER BY p.id ASC
                     "#,
                     game.id
                 )
@@ -148,7 +148,7 @@ impl Db {
 
                 if remaining_players.is_empty() {
                     // Last player (the host) left, delete the game
-                    sqlx::query!("DELETE FROM games WHERE id = ?", game.id)
+                    sqlx::query!("DELETE FROM games WHERE id = $1", game.id)
                         .execute(&mut *tx)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
@@ -156,7 +156,7 @@ impl Db {
                     // Assign a new host (the one who joined earliest)
                     let new_host_id = remaining_players[0].id;
                     sqlx::query!(
-                        "UPDATE games SET host_id = ? WHERE id = ?",
+                        "UPDATE games SET host_id = $1 WHERE id = $2",
                         new_host_id,
                         game.id
                     )
@@ -168,7 +168,7 @@ impl Db {
         } else {
             // If game is in progress or finished, just mark as not alive
             sqlx::query!(
-                "UPDATE players SET is_alive = false WHERE id = ?",
+                "UPDATE players SET is_alive = false WHERE id = $1",
                 player.id
             )
             .execute(&mut *tx)
@@ -187,7 +187,7 @@ impl Db {
 
     pub(crate) async fn get_player_by_auth_token_in_tx<'a>(
         &self,
-        tx: &mut sqlx::Transaction<'a, sqlx::Sqlite>,
+        tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
         killer_token: &str,
         game_id: i64,
     ) -> Result<Player, AppError> {
@@ -204,7 +204,7 @@ impl Db {
                 game_id,
                 NULL as "target_name: _"
             FROM players
-            WHERE auth_token = ? AND game_id = ?
+            WHERE auth_token = $1 AND game_id = $2
             "#,
             killer_token,
             game_id
@@ -225,7 +225,7 @@ impl Db {
 
     pub(crate) async fn get_player_by_secret_in_tx<'a>(
         &self,
-        tx: &mut sqlx::Transaction<'a, sqlx::Sqlite>,
+        tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
         target_secret: &str,
         game_id: i64,
     ) -> Result<Player, AppError> {
@@ -242,7 +242,7 @@ impl Db {
                 game_id,
                 NULL as "target_name: _"
             FROM players
-            WHERE secret_code = ? AND game_id = ?
+            WHERE secret_code = $1 AND game_id = $2
             "#,
             target_secret,
             game_id

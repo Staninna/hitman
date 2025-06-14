@@ -72,33 +72,33 @@ impl Db {
 
     async fn update_game_state_after_kill(
         &self,
-        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         killer: &Player,
         target: &Player,
     ) -> Result<Option<String>, AppError> {
         sqlx::query!(
-            "UPDATE players SET is_alive = FALSE WHERE id = ?",
+            "UPDATE players SET is_alive = FALSE WHERE id = $1",
             target.id
         )
         .execute(&mut **tx)
         .await?;
 
         let alive_count: i64 = sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM players WHERE game_id = ? AND is_alive = TRUE",
+            "SELECT COUNT(*) FROM players WHERE game_id = $1 AND is_alive = TRUE",
             killer.game_id
         )
         .fetch_one(&mut **tx)
         .await?;
         if alive_count <= 1 {
             sqlx::query!(
-                "UPDATE games SET status = 'finished', winner_id = ? WHERE id = ?",
+                "UPDATE games SET status = 'finished', winner_id = $1 WHERE id = $2",
                 killer.id,
                 killer.game_id
             )
             .execute(&mut **tx)
             .await?;
             sqlx::query!(
-                "UPDATE players SET target_id = NULL WHERE id = ?",
+                "UPDATE players SET target_id = NULL WHERE id = $1",
                 killer.id
             )
             .execute(&mut **tx)
@@ -107,14 +107,14 @@ impl Db {
         } else {
             let new_target_id = target.target_id;
             sqlx::query!(
-                "UPDATE players SET target_id = ? WHERE id = ?",
+                "UPDATE players SET target_id = $1 WHERE id = $2",
                 new_target_id,
                 killer.id
             )
             .execute(&mut **tx)
             .await?;
             let new_target_name =
-                sqlx::query!("SELECT name FROM players WHERE id = ?", new_target_id)
+                sqlx::query!("SELECT name FROM players WHERE id = $1", new_target_id)
                     .fetch_one(&mut **tx)
                     .await?
                     .name;

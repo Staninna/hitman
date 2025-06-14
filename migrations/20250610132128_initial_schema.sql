@@ -1,6 +1,6 @@
 -- Stores the overall game sessions
-CREATE TABLE IF NOT EXISTS games (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE games (
+    id SERIAL PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'lobby', -- 'lobby', 'inprogress', 'finished'
     host_id INTEGER, -- Refers to a player ID, can be NULL initially
@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 -- Stores player data for each game
-CREATE TABLE IF NOT EXISTS players (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE players (
+    id SERIAL PRIMARY KEY,
     game_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     secret_code TEXT NOT NULL UNIQUE, -- This is the UUID for the QR code
