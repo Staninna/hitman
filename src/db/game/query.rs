@@ -8,7 +8,17 @@ impl Db {
     pub async fn get_all_games(&self) -> Result<Vec<GameInfo>, sqlx::Error> {
         let games = sqlx::query_as!(
             GameInfo,
-            r#"SELECT g.code, g.status as "status: _", (SELECT COUNT(*) FROM players p WHERE p.game_id = g.id) as "player_count!" FROM games g"#
+            r#"
+            SELECT
+                g.code,
+                g.status AS "status: _",
+                (
+                    SELECT COUNT(*)
+                    FROM players p
+                    WHERE p.game_id = g.id
+                ) AS "player_count!"
+            FROM games g
+            "#
         )
         .fetch_all(&self.0)
         .await?;
@@ -18,7 +28,15 @@ impl Db {
     pub async fn get_game_by_code(&self, code: &str) -> Result<Option<Game>, AppError> {
         let game = sqlx::query_as!(
             Game,
-            r#"SELECT id as "id!", status as "status: _", host_id as "host_id: _", code as "code: _" FROM games WHERE code = ?"#,
+            r#"
+            SELECT
+                id            AS "id!",
+                status        AS "status: _",
+                host_id       AS "host_id: _",
+                code          AS "code: _"
+            FROM games
+            WHERE code = ?
+            "#,
             code
         )
         .fetch_optional(&self.0)
@@ -43,7 +61,15 @@ impl Db {
     pub async fn get_game_by_id(&self, game_id: i64) -> Result<Option<Game>, sqlx::Error> {
         sqlx::query_as!(
             Game,
-            r#"SELECT id as "id!", status as "status: _", host_id as "host_id: _", code as "code: _" FROM games WHERE id = ?"#,
+            r#"
+            SELECT
+                id            AS "id!",
+                status        AS "status: _",
+                host_id       AS "host_id: _",
+                code          AS "code: _"
+            FROM games
+            WHERE id = ?
+            "#,
             game_id
         )
         .fetch_optional(&self.0)
@@ -58,7 +84,15 @@ impl Db {
     ) -> Result<Game, AppError> {
         sqlx::query_as!(
             Game,
-            r#"SELECT id as "id!", status as "status: _", host_id as "host_id: _", code as "code: _" FROM games WHERE code = ?"#,
+            r#"
+            SELECT
+                id            AS "id!",
+                status        AS "status: _",
+                host_id       AS "host_id: _",
+                code          AS "code: _"
+            FROM games
+            WHERE code = ?
+            "#,
             game_code
         )
         .fetch_optional(&mut **tx)

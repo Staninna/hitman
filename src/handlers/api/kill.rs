@@ -12,7 +12,6 @@ use axum_extra::{
 };
 use serde::Deserialize;
 use tracing::info;
-use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
 pub struct KillPayload {
@@ -26,11 +25,9 @@ pub async fn kill_handler(
     Json(payload): Json<KillPayload>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("kill_handler {}", game_code);
-    let secret = Uuid::parse_str(&payload.secret_code)
-        .map_err(|_| AppError::UnprocessableEntity("Invalid secret code format".into()))?;
     let (_killer_id, killer_name, eliminated, new_target) = state
         .db
-        .process_kill(&game_code, auth.token(), &secret)
+        .process_kill(&game_code, auth.token(), &payload.secret_code)
         .await?;
     if state.db.get_game_by_code(&game_code).await?.is_some() {
         bump_game_version(&state, &game_code);

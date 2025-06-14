@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
 #[sqlx(type_name = "game_status", rename_all = "lowercase")]
@@ -26,7 +25,7 @@ pub struct Player {
     pub id: i64,
     pub name: String,
     #[serde(skip)]
-    pub secret_code: Uuid,
+    pub secret_code: String,
     #[serde(skip)]
     pub auth_token: String,
     pub is_alive: bool,

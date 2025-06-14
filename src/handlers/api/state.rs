@@ -11,7 +11,6 @@ use axum_extra::{
     TypedHeader,
 };
 use serde::Serialize;
-use uuid::Uuid;
 
 #[derive(Serialize)]
 pub struct PlayerGameState {
@@ -19,7 +18,7 @@ pub struct PlayerGameState {
     pub name: String,
     pub is_alive: bool,
     pub target_name: Option<String>,
-    pub secret_code: Option<Uuid>,
+    pub secret_code: Option<String>,
 }
 
 #[derive(Serialize)]

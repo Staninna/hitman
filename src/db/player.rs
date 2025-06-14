@@ -1,8 +1,7 @@
 use super::Db;
 use crate::errors::AppError;
-use crate::models::Player;
+use crate::models::{GameStatus, Player};
 use tracing::{debug, info};
-use uuid::Uuid;
 
 impl Db {
     // -------- Public player APIs ---------
@@ -15,7 +14,7 @@ impl Db {
             SELECT
                 p.id as "id!",
                 p.name,
-                p.secret_code as "secret_code: _",
+                p.secret_code,
                 p.auth_token,
                 p.is_alive,
                 p.target_id,
@@ -45,7 +44,7 @@ impl Db {
             SELECT
                 p.id as "id!",
                 p.name,
-                p.secret_code as "secret_code: _",
+                p.secret_code,
                 p.auth_token,
                 p.is_alive,
                 p.target_id,
@@ -78,7 +77,7 @@ impl Db {
             SELECT
                 id as "id!",
                 name,
-                secret_code as "secret_code: _",
+                secret_code,
                 auth_token,
                 is_alive,
                 target_id,
@@ -115,13 +114,66 @@ impl Db {
             .get_player_by_auth_token_in_tx(&mut tx, auth_token, game.id)
             .await?;
 
-        sqlx::query!(
-            "UPDATE players SET is_alive = false WHERE id = ?",
-            player.id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| AppError::InternalServerError)?;
+        if game.status == GameStatus::Lobby {
+            let is_host = game.host_id == Some(player.id);
+
+            sqlx::query!("DELETE FROM players WHERE id = ?", player.id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| AppError::InternalServerError)?;
+
+            if is_host {
+                let remaining_players: Vec<Player> = sqlx::query_as!(
+                    Player,
+                    r#"
+                    SELECT
+                        p.id as "id!",
+                        p.name,
+                        p.secret_code,
+                        p.auth_token,
+                        p.is_alive,
+                        p.target_id,
+                        p.game_id,
+                        t.name as "target_name: _"
+                    FROM players p
+                    LEFT JOIN players t ON p.target_id = t.id
+                    WHERE p.game_id = ? ORDER BY p.id ASC
+                    "#,
+                    game.id
+                )
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(|_| AppError::InternalServerError)?;
+
+                if remaining_players.is_empty() {
+                    // Last player (the host) left, delete the game
+                    sqlx::query!("DELETE FROM games WHERE id = ?", game.id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+                } else {
+                    // Assign a new host (the one who joined earliest)
+                    let new_host_id = remaining_players[0].id;
+                    sqlx::query!(
+                        "UPDATE games SET host_id = ? WHERE id = ?",
+                        new_host_id,
+                        game.id
+                    )
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?;
+                }
+            }
+        } else {
+            // If game is in progress or finished, just mark as not alive
+            sqlx::query!(
+                "UPDATE players SET is_alive = false WHERE id = ?",
+                player.id
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+        }
 
         tx.commit()
             .await
@@ -144,7 +196,7 @@ impl Db {
             SELECT
                 id as "id!",
                 name,
-                secret_code as "secret_code: _",
+                secret_code,
                 auth_token,
                 is_alive,
                 target_id,
@@ -173,7 +225,7 @@ impl Db {
     pub(crate) async fn get_player_by_secret_in_tx<'a>(
         &self,
         tx: &mut sqlx::Transaction<'a, sqlx::Sqlite>,
-        target_secret: &Uuid,
+        target_secret: &str,
         game_id: i64,
     ) -> Result<Player, AppError> {
         sqlx::query_as!(
@@ -182,7 +234,7 @@ impl Db {
             SELECT
                 id as "id!",
                 name,
-                secret_code as "secret_code: _",
+                secret_code,
                 auth_token,
                 is_alive,
                 target_id,
@@ -198,7 +250,7 @@ impl Db {
         .await
         .map_err(|e| {
             tracing::warn!(
-                target_secret = target_secret.to_string(),
+                target_secret,
                 game_id,
                 "Failed to query for target by secret: {}",
                 e

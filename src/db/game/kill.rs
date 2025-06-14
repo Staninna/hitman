@@ -3,14 +3,13 @@ use crate::errors::AppError;
 use crate::models::{Game, GameStatus, Player};
 use sqlx;
 use tracing::debug;
-use uuid::Uuid;
 
 impl Db {
     pub async fn process_kill(
         &self,
         game_code: &str,
         killer_token: &str,
-        target_secret: &Uuid,
+        target_secret: &str,
     ) -> Result<(i64, String, String, Option<String>), AppError> {
         let mut tx = self
             .0

@@ -27,6 +27,12 @@ pub async fn check_for_changes(
     let client_version = query.version.unwrap_or(0);
     let current_version = state.get_game_version(&game_code);
     let changed = current_version > client_version;
-    info!("Client version {} vs server {}, changed => {}", client_version, current_version, changed);
-    Ok(Json(ChangedResponse { changed, current_version }))
+    info!(
+        "Client version {} vs server {}, changed => {}",
+        client_version, current_version, changed
+    );
+    Ok(Json(ChangedResponse {
+        changed,
+        current_version,
+    }))
 }

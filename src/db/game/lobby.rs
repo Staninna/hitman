@@ -1,10 +1,10 @@
 use super::super::Db;
 use crate::errors::AppError;
 use crate::models::{GameStatus, Player};
+use crate::utils::generate_code;
 use rand::seq::SliceRandom;
 use tracing::{debug, info};
 use uuid::Uuid;
-use crate::utils::generate_code;
 
 impl Db {
     /// Create a new game and the first (host) player
@@ -60,7 +60,7 @@ impl Db {
         &self,
         game_code: String,
         player_name: String,
-    ) -> Result<(i64, i64, Uuid, String), AppError> {
+    ) -> Result<(i64, i64, String, String), AppError> {
         info!("Player {} joining game {}", player_name, game_code);
         let mut tx = self
             .0
@@ -91,7 +91,7 @@ impl Db {
         }
 
         // New player
-        let player_secret = Uuid::new_v4();
+        let player_secret = generate_code(7);
         let auth_token = Uuid::new_v4().to_string();
 
         let player_id = sqlx::query!(
@@ -109,7 +109,12 @@ impl Db {
                     return AppError::UnprocessableEntity("Player name already taken".to_string());
                 }
             }
-            tracing::warn!(game_id = game.id, player_name, "Failed to insert player: {}", e);
+            tracing::warn!(
+                game_id = game.id,
+                player_name,
+                "Failed to insert player: {}",
+                e
+            );
             AppError::InternalServerError
         })?
         .last_insert_rowid();

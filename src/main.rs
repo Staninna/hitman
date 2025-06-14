@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use std::sync::Arc;
 use hitman::{create_router, db::Db, state::AppState};
+use std::sync::Arc;
 use tera::Tera;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::prelude::*;
@@ -12,8 +12,7 @@ async fn main() {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "info".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();

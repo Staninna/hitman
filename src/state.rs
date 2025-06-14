@@ -19,6 +19,9 @@ impl AppState {
 
     /// Fetch the current version for a game (defaults to 0 if never seen).
     pub fn get_game_version(&self, game_code: &str) -> i64 {
-        self.versions.get(game_code).map(|v| *v.value()).unwrap_or(0)
+        self.versions
+            .get(game_code)
+            .map(|v| *v.value())
+            .unwrap_or(0)
     }
 }

@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::models::{Game, Player};
+use serde::{Deserialize, Serialize};
 
 // --- Client-to-Server Payloads ---
 
@@ -32,7 +30,7 @@ pub struct GameCreatedPayload {
 pub struct GameJoinedPayload {
     pub game_code: String,
     pub player_id: i64,
-    pub player_secret: Uuid,
+    pub player_secret: String,
     pub auth_token: String,
     pub players: Vec<Player>,
     pub game: Game,
