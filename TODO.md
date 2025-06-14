@@ -1,7 +1,5 @@
 # important
 
-- [ ] make toast look like a window with working close button winXP style
-
 # later
 
 - [ ] add private mode s players cant see who is still alive
@@ -10,3 +8,4 @@
 - [ ] 'skeleton' of the webside so it does't 'flash' when getting hydrated flash == small to big
 - [ ] welcome page should have more info on the game
 - [ ] ui should be updated
+- [ ] put rejoin link in localstorage so users can open site to rejoin instead of losing the url
