@@ -22,6 +22,7 @@
                     <legend>Your Secret Code</legend>
                     <p>When your assassin finds you, they will ask for this code to confirm the kill.</p>
                     <p id="playerSecretCode" style="font-weight: bold; font-size: 1.5rem; text-align: center; letter-spacing: 3px; margin: 10px 0;"></p>
+                    <div id="qrCode" style="text-align:center; margin-bottom: 10px;"></div>
                 </fieldset>
                 <fieldset id="targetInfo">
                     <legend>Your Target</legend>
@@ -32,8 +33,9 @@
                         <label for="assassinationCode">Enter target's secret code:</label>
                         <input id="assassinationCode" type="text" />
                     </div>
-                    <div class="field-row" style="justify-content: flex-end">
-                        <button>Assassinate</button>
+                    <div class="field-row" style="justify-content: space-between">
+                        <button id="scanQrButton" type="button">Scan QR</button>
+                        <button id="assassinateBtn" type="button">Assassinate</button>
                     </div>
                 </fieldset>
                 <fieldset>
@@ -44,8 +46,44 @@
         </div>
     </div>
 </div>
+
+<!-- QR Scanner Overlay -->
+<div id="qrScannerOverlay" class="overlay" style="display: none; align-items: center; justify-content: center;">
+    <div class="window" style="width: 340px;">
+        <div class="title-bar">
+            <div class="title-bar-text">Scan Target QR Code</div>
+            <div class="title-bar-controls">
+                <button aria-label="Close" id="closeScannerBtn"></button>
+            </div>
+        </div>
+        <div class="window-body" style="display:flex; flex-direction:column; align-items:center;">
+            <div id="qrReader" style="width:300px; height:300px;"></div>
+            <p>Point your camera at your target's QR code.</p>
+        </div>
+    </div>
+</div>
 {% endblock body %}
 
 {% block scripts %}
+<script src="/static/js/lib/qrcode.min.js"></script>
+<script src="/static/js/lib/html5-qrcode.min.js"></script>
 <script type="module" src="/static/js/game.js"></script>
-{% endblock scripts %} 
+{% endblock scripts %}
+
+{% block head %}
+<style>
+    #qrScannerOverlay .window-body{
+        padding: 0;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+    }
+
+    #qrReader video,
+    #qrReader canvas{
+        width: 100%;
+        max-height: 50vh;
+        object-fit: contain;
+    }
+</style>
+{% endblock head %}

@@ -20,8 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
         initializePolling();
     }
 
-    const assassinateButton = document.querySelector('#gamePlaying button');
+    const assassinateButton = document.querySelector('#assassinateBtn');
     if(assassinateButton) assassinateButton.addEventListener('click', eliminateTarget);
+
+    // QR scan button
+    const scanQrButton = document.getElementById('scanQrButton');
+    if (scanQrButton) scanQrButton.addEventListener('click', startQrScan);
+
+    // Close scanner button
+    const closeScannerBtn = document.getElementById('closeScannerBtn');
+    if (closeScannerBtn) closeScannerBtn.addEventListener('click', stopQrScan);
 
     const closeButton = document.querySelector('.title-bar-controls button[aria-label="Close"]');
     if(closeButton) closeButton.addEventListener('click', leaveGame);
@@ -29,10 +37,21 @@ document.addEventListener('DOMContentLoaded', () => {
     registerUpdater('game', updateGameUI);
 });
 
+// Keeps track whether we already rendered the QR code to avoid redundant work
+let lastRenderedSecret = null;
+let html5QrScanner = null;
+let resizeInterval = null;
+
 function updateGameUI(game, players, me) {
     document.getElementById('gameViewTitle').textContent = "Game in Progress";
 
     document.getElementById('playerSecretCode').textContent = me.secret_code || '...';
+
+    // Generate QR code for the player's own secret_code
+    if (me.secret_code && me.secret_code !== lastRenderedSecret) {
+        lastRenderedSecret = me.secret_code;
+        renderSecretQr(me.secret_code);
+    }
 
     const targetInfo = document.getElementById('targetInfo');
     if (me.target_name) {
@@ -55,6 +74,23 @@ function updateGameUI(game, players, me) {
     });
 }
 
+function renderSecretQr(secret) {
+    const container = document.getElementById('qrCode');
+    if (!container) return;
+    container.innerHTML = '';
+    /* global QRCode */
+    try {
+        new QRCode(container, {
+            text: secret,
+            width: 128,
+            height: 128,
+            correctLevel: QRCode.CorrectLevel.H,
+        });
+    } catch (err) {
+        console.error('Failed to render QR code:', err);
+    }
+}
+
 async function eliminateTarget() {
     const code = document.getElementById('assassinationCode').value;
     if (!code) {
@@ -68,4 +104,69 @@ async function eliminateTarget() {
         console.error('Error eliminating target:', error);
         showToast(error.message, 'error');
     }
+}
+
+// ================= QR Scanner =================
+
+function startQrScan() {
+    // Check if camera access is allowed in current context
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('Camera is not available in this browser.', 'error');
+        return;
+    }
+
+    // Camera access is only permitted in secure contexts (HTTPS or localhost)
+    if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+        showToast('Camera access requires HTTPS (or localhost). Please run the app over HTTPS.', 'error');
+        return;
+    }
+
+    const overlay = document.getElementById('qrScannerOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    // Initialize scanner only once
+    if (!html5QrScanner) {
+        html5QrScanner = new Html5Qrcode('qrReader');
+    }
+
+    html5QrScanner
+        .start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: 250 },
+            onScanSuccess,
+            err => console.warn('QR scan error:', err)
+        )
+        .catch(err => {
+            console.error('Start scan failed:', err);
+            showToast('Unable to start camera for scanning.', 'error');
+            stopQrScan();
+        });
+}
+
+function stopQrScan() {
+    const overlay = document.getElementById('qrScannerOverlay');
+    if (overlay) overlay.style.display = 'none';
+
+    if (html5QrScanner) {
+        html5QrScanner.stop().catch(err => console.warn('Failed to stop scanner:', err));
+    }
+
+    window.removeEventListener('resize', adjustReaderSize);
+    if (resizeInterval) {
+        clearInterval(resizeInterval);
+        resizeInterval = null;
+    }
+}
+
+async function onScanSuccess(decodedText) {
+    stopQrScan();
+    try {
+        await eliminateTargetApi(decodedText);
+    } catch (error) {
+        console.error('Error eliminating target:', error);
+        showToast(error.message, 'error');
+        return;
+    }
+    showToast('Target elimination attempted!', 'info');
 } 
