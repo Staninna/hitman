@@ -66,6 +66,7 @@ export class GameService {
 				gameCode,
 			);
 			if (typeof version === "number") {
+				console.log("TODO: DO WE EVEN GET AN VERSION")
 				gameState.setVersion(version);
 			}
 			// Dispatch the new state to the view manager
@@ -88,6 +89,7 @@ export class GameService {
 			} catch (error) {
 				console.error("Error leaving game:", error);
 				// Don't block redirect on failure
+				// TODO: handle this better cuz otherwise other players are out of sync and an player is dangeling within the game
 			}
 		}
 		window.location.href = "/";
@@ -97,7 +99,6 @@ export class GameService {
 		const { gameCode } = gameState.getGameDetails();
 		try {
 			await api.startGame(gameCode);
-			// The poll will pick up the state change
 		} catch (error) {
 			showToast(error.message, "error");
 		}
@@ -108,7 +109,6 @@ export class GameService {
 		try {
 			await api.eliminateTarget(gameCode, secretCode);
 			showToast("Target elimination attempted!", "info");
-			// The poll will pick up the state change
 		} catch (error) {
 			showToast(error.message, "error");
 		}
