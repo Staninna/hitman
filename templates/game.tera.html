@@ -10,7 +10,7 @@
     <div class="window" style="margin: 32px; width: 500px">
         <div class="title-bar">
             <div id="gameViewTitle" class="title-bar-text">Hitman</div>
-             <div class="title-bar-controls">
+            <div class="title-bar-controls">
                 <button aria-label="Minimize"></button>
                 <button aria-label="Maximize"></button>
                 <button aria-label="Close"></button>
@@ -72,22 +72,9 @@
 
 {% block head %}
 <style>
-    /*#qr-shaded-region {*/
-    /*    display: none;*/
-    /*}*/
-
-    #qrScannerOverlay .window-body{
-        padding: 0;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
-    }
-
-    #qrReader video,
-    #qrReader canvas{
-        width: 100%;
-        max-height: 50vh;
-        object-fit: contain;
+    #qrReader video {
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
     }
 </style>
 {% endblock head %}

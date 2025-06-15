@@ -13,14 +13,12 @@ function onElementReady(selectors, callback) {
             clearTimeout(timeoutId);
             callback(elements);
         }
-    }, 50);
+    }, 10);
 
     const timeoutId = setTimeout(() => {
         clearInterval(intervalId);
         console.error(
-            `One or more elements not found within 10s: ${selectorArray.join(
-                ", "
-            )}`
+            `One or more elements not found within 10s: ${selectorArray.join(", ")}`
         );
     }, 10000);
 }
@@ -37,6 +35,8 @@ function alignVideoWithOverlay(videoElement, shadedRegion) {
         zIndex: "0",
     };
     Object.assign(videoElement.style, stylesToApply);
+
+    videoElement.style.opacity = "1";
 }
 
 export function stopScanner() {
