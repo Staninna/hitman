@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Hitman Game{% endblock title %}</title>
-    <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://unpkg.com/xp.css" />
+    <link rel="stylesheet" href="/static/style.css">
     <style>
         body {
             background: url('https://www.newegg.com/insider/wp-content/uploads/windows_xp_bliss-wide.jpg') no-repeat center center fixed;
@@ -26,7 +26,12 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
             z-index: 5;
-            display: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hidden {
+            display: none !important;
         }
         .screen {
             display: none;
@@ -48,7 +53,6 @@
 </head>
 <body>
     {% block body %}{% endblock body %}
-    <script src="/static/js/common.js"></script>
     {% block scripts %}{% endblock scripts %}
 </body>
 </html> 

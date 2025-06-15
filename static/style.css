@@ -34,10 +34,42 @@ body, html {
     gap: 10px;
 }
 
-.toast {
-    width: 300px;
-    opacity: 1;
+/* Toast Notification Styles */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    opacity: 0;
     transition: opacity 0.5s ease-in-out;
 }
 
-/* Remove the redundant font-face definition and other styles if they are covered by xp.css */
+.toast-container .window {
+    min-width: 225px; /* Set a reasonable minimum width */
+}
+
+.toast-container.show {
+    opacity: 1;
+}
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    min-width: 225px; /* Set a reasonable minimum width */
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+.toast.toast-info {
+    background-color: #007bff; /* A pleasant blue */
+}
+
+.toast.toast-error {
+    background-color: #dc3545; /* A standard red for errors */
+}

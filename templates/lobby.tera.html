@@ -33,7 +33,7 @@
                         <div style="text-align: center;">
                             <label>Scan Code:</label>
                             <div class="qr-container" style="background:white; padding:10px; border: 1px solid grey; margin-top: 5px;">
-                                <img id="qrCode" alt="QR Code" style="width: 110px; height: 110px;"/>
+                                <div id="qrCode" style="width:110px;height:110px;"></div>
                             </div>
                         </div>
                         <div style="display: flex; flex-direction: column; align-items: center;">
@@ -48,7 +48,7 @@
                     <ul id="playerList" class="tree-view"></ul>
                 </fieldset>
                 <section id="lobbyActions" class="field-row" style="justify-content: flex-end">
-                    <button>Leave</button>
+                    <button id="leaveGameBtn">Leave</button>
                     <button id="startGameBtn" style="display: none;">Start Game</button>
                 </section>
             </div>
@@ -58,5 +58,6 @@
 {% endblock body %}
 
 {% block scripts %}
-<script type="module" src="/static/js/lobby.js"></script>
+<script src="/static/js/lib/qrcode.min.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 {% endblock scripts %} 
