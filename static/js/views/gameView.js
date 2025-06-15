@@ -1,8 +1,27 @@
 import { gameState } from "../core/state.js";
 import { showToast } from "../utils/ui.js";
+import {
+	startScanner,
+	stopScanner,
+} from "../core/qrScanner.js";
 
 let lastRenderedSecret = null;
-let html5QrScanner = null;
+
+function renderSecretQr(secret) {
+	const container = document.getElementById("qrCode");
+	if (!container) return;
+	container.innerHTML = "";
+	try {
+		new QRCode(container, {
+			text: secret,
+			width: 128,
+			height: 128,
+			correctLevel: QRCode.CorrectLevel.H,
+		});
+	} catch (err) {
+		console.error("Failed to render QR code:", err);
+	}
+}
 
 function updateGameUI({ game, players, me }) {
 	document.getElementById("gameViewTitle").textContent = "Game in Progress";
@@ -47,80 +66,19 @@ function initGame(gameService) {
 			gameService.eliminateTarget(code);
 		});
 
-	document
-		.getElementById("scanQrButton")
-		?.addEventListener("click", () => startQrScan(gameService));
+	document.getElementById("scanQrButton")?.addEventListener("click", () => {
+		startScanner(async (decodedText) => {
+			await gameService.eliminateTarget(decodedText);
+		});
+	});
+
 	document
 		.getElementById("closeScannerBtn")
-		?.addEventListener("click", stopQrScan);
+		?.addEventListener("click", stopScanner);
+
 	document
 		.querySelector('.title-bar-controls button[aria-label="Close"]')
 		?.addEventListener("click", () => gameService.leave());
-}
-
-function renderSecretQr(secret) {
-    const container = document.getElementById('qrCode');
-    if (!container) return;
-    container.innerHTML = '';
-    try {
-        new QRCode(container, {
-            text: secret,
-            width: 128,
-            height: 128,
-            correctLevel: QRCode.CorrectLevel.H,
-        });
-    } catch (err) {
-        console.error('Failed to render QR code:', err);
-    }
-}
-
-function startQrScan(gameService) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast('Camera is not available in this browser.', 'error');
-        return;
-    }
-
-    if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(location.hostname)) {
-        showToast('Camera access requires HTTPS (or localhost). Please run the app over HTTPS.', 'error');
-        return;
-    }
-
-    const overlay = document.getElementById('qrScannerOverlay');
-    if (!overlay) return;
-    overlay.style.display = 'flex';
-
-    if (!html5QrScanner) {
-        html5QrScanner = new Html5Qrcode('qrReader');
-    }
-
-	const successCallback = (decodedText) => onScanSuccess(decodedText, gameService);
-
-    html5QrScanner
-        .start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            successCallback,
-            (err) => console.warn('QR scan error:', err),
-        )
-        .catch((err) => {
-            console.error('Start scan failed:', err);
-            showToast('Unable to start camera for scanning.', 'error');
-            stopQrScan();
-        });
-}
-
-function stopQrScan() {
-    const overlay = document.getElementById('qrScannerOverlay');
-    if (overlay) overlay.style.display = 'none';
-
-    if (html5QrScanner && html5QrScanner.isScanning) {
-        html5QrScanner.stop().catch(err => console.warn('Failed to stop scanner:', err));
-    }
-}
-
-async function onScanSuccess(decodedText, gameService) {
-	stopQrScan();
-	await gameService.eliminateTarget(decodedText);
 }
 
 export const gameView = {
@@ -128,4 +86,4 @@ export const gameView = {
 	screenId: "gamePlaying",
 	init: initGame,
 	update: updateGameUI,
-}; 
+};
