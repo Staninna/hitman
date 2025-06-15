@@ -1,7 +1,5 @@
 # important
 
-- [ ] make qrcode scanner not overflow
-
 # later
 
 - [ ] add private mode so players cant see who is still alive
